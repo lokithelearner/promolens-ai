@@ -3,67 +3,381 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>PromoLens AI</title>
+<title>PromoLens AI — Trade-Promotion Growth Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{ --navy:#0f3460; --ink:#16213e; --accent:#e94560; --bg:#f4f6fb;}
-  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
-  body{background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;}
-  header{background:linear-gradient(135deg,#0f3460,#16213e);color:#fff;padding:16px 22px;}
-  header h1{font-size:20px;}
-  header span{font-size:12px;color:#a8d8ea;}
-  #chat{flex:1;overflow-y:auto;padding:22px;max-width:860px;margin:0 auto;width:100%;}
-  .msg{margin:12px 0;display:flex;}
-  .msg .bubble{padding:12px 16px;border-radius:14px;max-width:78%;font-size:15px;line-height:1.55;white-space:pre-wrap;}
-  .user{justify-content:flex-end;}
-  .user .bubble{background:var(--navy);color:#fff;border-bottom-right-radius:4px;}
-  .bot .bubble{background:#fff;border:1px solid #dde3ff;border-bottom-left-radius:4px;}
-  .hint{color:#888;font-size:13px;text-align:center;margin:10px 0;}
-  .chips{max-width:860px;margin:0 auto;padding:0 22px 6px;display:flex;gap:8px;flex-wrap:wrap;}
-  .chip{background:#fff;border:1px solid #dde3ff;border-radius:18px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--navy);}
-  .chip:hover{background:#eef2ff;}
-  footer{max-width:860px;margin:0 auto;width:100%;padding:14px 22px 22px;display:flex;gap:10px;}
-  #q{flex:1;padding:13px 16px;border:1px solid #c9d2ee;border-radius:12px;font-size:15px;}
-  #send{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:0 22px;font-weight:700;cursor:pointer;}
-  #send:disabled{opacity:.5;}
+  :root{
+    --paper:#faf8f3; --card:#fffdf9; --ink:#191a1d; --ink2:#41434a; --mut:#7c7e86; --faint:#a7a49b;
+    --line:#e7e2d6; --line2:#d9d3c4; --rule:#1a1b1e;
+    --navy:#173a5e; --green:#1f7a4d; --red:#b3392b; --gold:#a9791f; --sky:#2f6f9f;
+    --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+    --wrap:1360px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+    background-image:radial-gradient(var(--line) .5px,transparent .5px);background-size:22px 22px;}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 30px;}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+  a{color:var(--navy);}
+  /* masthead */
+  header{border-top:4px solid var(--rule);background:var(--paper);position:sticky;top:0;z-index:30;border-bottom:1px solid var(--line2);}
+  .head{display:flex;align-items:baseline;gap:16px;padding:14px 0 12px;}
+  .word{font-family:var(--serif);font-weight:700;font-size:29px;letter-spacing:-.5px;line-height:1;}
+  .word em{font-style:normal;color:var(--red);}
+  .word sup{font-size:12px;font-weight:700;color:var(--red);}
+  .kick{font-family:var(--sans);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-left:2px;}
+  .head .sp{margin-left:auto;}
+  .live{font-size:10.5px;font-weight:700;letter-spacing:1.5px;color:var(--green);display:inline-flex;align-items:center;gap:6px;text-transform:uppercase;}
+  .live i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;box-shadow:0 0 0 0 rgba(31,122,77,.5);animation:pl 2.4s infinite;}
+  @keyframes pl{0%{box-shadow:0 0 0 0 rgba(31,122,77,.45);}70%{box-shadow:0 0 0 7px rgba(31,122,77,0);}100%{box-shadow:0 0 0 0 rgba(31,122,77,0);}}
+  select#win{font-family:var(--sans);font-size:12.5px;font-weight:600;border:1px solid var(--line2);background:var(--card);border-radius:7px;padding:7px 10px;color:var(--ink);cursor:pointer;margin-left:14px;}
+  /* dateline */
+  .dateline{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:9px 0;border-bottom:1px solid var(--line2);
+    font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:600;}
+  .dateline b{color:var(--ink);} .dateline .dot{color:var(--line2);}
+  .tag-growth{color:var(--green);}
+  /* lede */
+  .lede{padding:26px 0 6px;display:grid;grid-template-columns:1.5fr 1fr;gap:36px;align-items:end;}
+  .lede h1{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.08;letter-spacing:-.6px;}
+  .lede h1 .u{background:linear-gradient(transparent 62%,rgba(31,122,77,.22) 0);}
+  .lede .sig{font-size:13.5px;color:var(--ink2);margin-top:14px;max-width:640px;}
+  .lede .sig b{color:var(--ink);}
+  .brief-narr{font-size:13px;color:var(--ink2);line-height:1.6;border-left:2px solid var(--rule);padding:2px 0 2px 16px;}
+  .brief-narr .h{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px;}
+  /* stat band */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule);margin:22px 0 0;}
+  .stat{padding:16px 20px;border-right:1px solid var(--line2);}
+  .stat:last-child{border-right:none;}
+  .stat .l{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);font-weight:700;}
+  .stat .v{font-family:var(--mono);font-weight:600;font-size:32px;letter-spacing:-1px;margin-top:8px;line-height:1;}
+  .stat .r{font-size:11.5px;color:var(--faint);margin-top:7px;}
+  .stat.g .v{color:var(--green);} .stat.r2 .v{color:var(--red);} .stat.n .v{color:var(--navy);}
+  /* stakes band */
+  .stakes{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1.5px solid var(--rule);background:linear-gradient(180deg,rgba(31,122,77,.03),transparent);}
+  .stakes>div{padding:14px 20px;border-right:1px solid var(--line2);font-size:12px;color:var(--ink2);line-height:1.5;}
+  .stakes>div:last-child{border-right:none;}
+  .stakes .k{font-size:10px;letter-spacing:1.1px;text-transform:uppercase;color:var(--mut);font-weight:700;display:block;margin-bottom:7px;}
+  .stakes b{font-family:var(--mono);font-size:21px;letter-spacing:-.5px;font-weight:600;}
+  .stakes .g{color:var(--green);} .stakes .r{color:var(--red);} .stakes .nv{color:var(--navy);}
+  /* sections grid */
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:34px;padding:30px 0 20px;align-items:start;}
+  section{margin-bottom:30px;}
+  .sh{display:flex;align-items:baseline;gap:12px;border-bottom:1.5px solid var(--rule);padding-bottom:8px;margin-bottom:6px;}
+  .sh .no{font-family:var(--mono);font-size:12px;color:var(--red);font-weight:600;}
+  .sh h2{font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-.3px;}
+  .sh .meta{margin-left:auto;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+  .basis{font-size:11.5px;color:var(--mut);font-style:italic;margin:8px 0 12px;}
+  /* editorial list rows */
+  .item{display:grid;grid-template-columns:22px 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start;}
+  .item .rank{font-family:var(--mono);font-size:15px;color:var(--faint);font-weight:600;padding-top:1px;}
+  .item .rank.risk{color:var(--gold);} .item .rank.go{color:var(--green);}
+  .item .t{font-weight:600;font-size:15px;}
+  .item .t .who{color:var(--mut);font-weight:500;font-size:12.5px;}
+  .item .d{font-size:12.5px;color:var(--ink2);margin-top:4px;line-height:1.5;}
+  .item .basis-inline{font-family:var(--mono);font-size:11px;color:var(--mut);margin-top:5px;}
+  .item .amt{text-align:right;font-family:var(--mono);font-weight:600;font-size:16px;white-space:nowrap;}
+  .item .amt small{display:block;font-size:10.5px;color:var(--mut);font-weight:500;letter-spacing:.3px;}
+  .item .amt.g{color:var(--green);} .item .amt.s{color:var(--sky);}
+  .track{grid-column:2 / 4;height:5px;background:var(--line);border-radius:3px;margin-top:9px;overflow:hidden;}
+  .track i{display:block;height:100%;border-radius:3px;}
+  .pill{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:2px 7px;border-radius:4px;border:1px solid;}
+  .pill.fix{color:var(--gold);border-color:var(--gold);background:rgba(169,121,31,.08);}
+  .pill.win{color:var(--green);border-color:var(--green);background:rgba(31,122,77,.08);}
+  .pill.dud{color:var(--red);border-color:var(--red);background:rgba(179,57,43,.07);}
+  .pill.mod{color:var(--gold);border-color:var(--gold);background:rgba(169,121,31,.06);}
+  /* card / chart */
+  .card{background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:18px 20px;margin-bottom:22px;box-shadow:0 1px 0 rgba(26,27,30,.03);}
+  .card h3{font-family:var(--serif);font-size:16px;font-weight:600;margin-bottom:3px;}
+  .card .sub{font-size:11.5px;color:var(--mut);margin-bottom:12px;}
+  canvas{max-width:100%;}
+  /* copilot */
+  .ask{display:flex;flex-direction:column;height:480px;border:1px solid var(--line2);border-radius:10px;background:var(--card);overflow:hidden;}
+  .ask .top{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
+  .ask .top h3{font-family:var(--serif);font-size:15px;font-weight:600;}
+  .ask .top .m{margin-left:auto;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);font-weight:700;}
+  .rst{border:1px solid var(--line2);background:var(--paper);border-radius:999px;font-size:10.5px;font-weight:600;color:var(--ink2);padding:3px 9px;cursor:pointer;font-family:var(--sans);}
+  .rst:hover{border-color:var(--navy);color:var(--navy);}
+  .wfsel{flex:1;border:1px solid var(--line2);border-radius:8px;padding:9px 10px;font-size:12px;background:var(--paper);outline:none;font-family:var(--sans);color:var(--ink);}
+  .wfband{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;}
+  .wfband>div{border:1px solid var(--line2);border-radius:8px;padding:9px 10px;text-align:center;}
+  .wfband>div.mid{border-color:var(--green);background:rgba(31,122,77,.05);}
+  .wfband .k{display:block;font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:5px;}
+  .wfband b{font-family:var(--mono);font-size:14px;font-weight:600;} .wfband b.g{color:var(--green);}
+  .wfband small{display:block;font-size:10px;color:var(--mut);margin-top:3px;}
+  .stream{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:11px;}
+  .msg{max-width:90%;font-size:13px;line-height:1.55;padding:10px 13px;border-radius:11px;}
+  .msg.u{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:3px;}
+  .msg.a{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:3px;}
+  .msg .mode{font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--sky);margin-top:6px;font-weight:700;}
+  .cite{margin-top:7px;padding:7px 10px;border-left:2px solid var(--sky);background:rgba(47,111,159,.06);font-size:11px;color:var(--ink2);border-radius:0 6px 6px 0;}
+  .cite b{color:var(--navy);}
+  .sgs{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px;}
+  .sg{font-size:11px;color:var(--ink2);border:1px solid var(--line2);border-radius:999px;padding:5px 10px;cursor:pointer;background:var(--paper);}
+  .sg:hover{border-color:var(--navy);color:var(--navy);}
+  .compose{display:flex;gap:7px;padding:11px 14px;border-top:1px solid var(--line);}
+  .compose input{flex:1;border:1px solid var(--line2);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:13px;background:var(--paper);outline:none;}
+  .compose input:focus{border-color:var(--navy);}
+  .btn{border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:12.5px;cursor:pointer;background:var(--rule);color:#fff;font-family:var(--sans);}
+  .btn.o{background:var(--card);color:var(--ink);border:1px solid var(--line2);}
+  .btn.g{background:var(--green);}
+  .searchrow{display:flex;gap:7px;margin-bottom:10px;}
+  .searchrow input{flex:1;border:1px solid var(--line2);border-radius:8px;padding:9px 12px;font-size:12.5px;background:var(--paper);outline:none;font-family:var(--sans);}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .rep{font-size:13px;line-height:1.6;color:var(--ink2);border-left:2px solid var(--navy);padding:4px 0 4px 14px;display:none;margin-top:6px;}
+  .rep .h{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--navy);font-weight:700;margin-bottom:6px;}
+  .method{border-top:1px solid var(--line2);margin-top:8px;padding:18px 0 34px;font-size:11.5px;color:var(--mut);line-height:1.7;}
+  .method b{color:var(--ink2);}
+  .skel{background:linear-gradient(90deg,#efece4,#f6f3ec,#efece4);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:6px;}
+  @keyframes sh{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  @media(max-width:1000px){.lede,.grid{grid-template-columns:1fr;}.stats{grid-template-columns:1fr 1fr;}}
 </style>
 </head>
 <body>
-<header><h1>🔎 PromoLens AI</h1><span>Trade Promotion Intelligence Copilot · synthetic data</span></header>
-<div class="chips" id="chips"></div>
-<div id="chat"><div class="hint">Ask about scheme ROI, leakage, claims, stacking, or design a new scheme.</div></div>
-<footer>
-  <input id="q" placeholder="e.g. Which building-materials schemes gave the best ROI?" autocomplete="off"/>
-  <button id="send">Send</button>
-</footer>
+<header><div class="wrap">
+  <div class="head">
+    <div class="word">PromoLens<sup>AI</sup></div><span class="kick">Trade-Promotion Growth Intelligence</span>
+    <span class="sp"></span>
+    <span class="live"><i></i>Live · Gemini 2.5 · ADK · BigQuery</span>
+    <label style="font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-left:6px;">Window</label>
+    <select id="win" onchange="loadAll()"></select>
+  </div>
+  <div class="dateline">
+    <span class="tag-growth">◆ Growth Briefing</span><span class="dot">|</span>
+    <span>Prepared for <b>Arjun Nair — National Sales Head, DuraBuild</b></span><span class="dot">|</span>
+    <span>Window: <b id="dl-win">—</b></span><span class="dot">|</span>
+    <span><b id="dl-active">—</b> active schemes assessed</span><span class="dot">|</span>
+    <span id="dl-date"></span>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div class="lede">
+    <div>
+      <h1>Where to grow next — and <span class="u">what's leaking</span> that's capping the number.</h1>
+      <p class="sig">A prescriptive read of the distributor &amp; dealer scheme book for the national sales line. PromoLens computes every rupee with an auditable engine over BigQuery; Gemini + a 4-agent ADK system turn it into the <b>next best move</b>, the <b>untapped upside</b>, and cited scheme terms. <span style="color:var(--faint)">Synthetic data.</span></p>
+    </div>
+    <div class="brief-narr" id="narr"><div class="h">The desk's read</div><span id="narr-body">Compiling this window's briefing…</span></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat n"><div class="l">Growth on the table</div><div class="v" id="s-up">—</div><div class="r" id="s-up-r">Next-best-scheme upside across partners</div></div>
+    <div class="stat g"><div class="l">Best scheme ROI</div><div class="v" id="s-roi">—</div><div class="r" id="s-roi-r">Return per ₹1 · vs trailing-12m baseline</div></div>
+    <div class="stat r2"><div class="l">Leaking now</div><div class="v" id="s-leak">—</div><div class="r" id="s-leak-r">Over-claims + inventory loading</div></div>
+    <div class="stat"><div class="l">Scheme health</div><div class="v" id="s-health">—</div><div class="r" id="s-health-r">Portfolio score · profitable share</div></div>
+  </div>
+
+  <div class="stakes">
+    <div><span class="k">If you act on this brief</span><b class="g" id="st-act">—</b> in reachable growth · <span id="st-act-n">—</span> partner moves, next-12-month view</div>
+    <div><span class="k">If the leaks go unaddressed</span><b class="r" id="st-leak">—</b> recoverable trade-spend · <span id="st-leak-n">—</span> draining now</div>
+    <div><span class="k">Net swing on the number</span><b class="nv" id="st-net">—</b> the size of the prize if you both grow and plug</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <section>
+        <div class="sh"><span class="no">01</span><h2>Where to grow next</h2><span class="meta" id="nba-meta">Next best action</span></div>
+        <p class="basis">Reference: each move projects the partner's <b>current 12-month base</b> in the scheme's SKUs, grown by the scheme's top slab and the partner's historical uptake — net of projected payout. Partners loading inventory or over-claiming are surfaced to fix first.</p>
+        <div id="nba"></div>
+      </section>
+      <section>
+        <div class="sh"><span class="no">02</span><h2>Untapped upside</h2><span class="meta">Peer-gap opportunities</span></div>
+        <p class="basis">Reference: partners buying an in-scheme SKU below the <b>same-tier peer median</b>, where an active scheme already covers it. Upside = (peer median − current) × avg selling price.</p>
+        <div id="missed"></div>
+      </section>
+      <section>
+        <div class="sh"><span class="no">03</span><h2>What's leaking</h2><span class="meta">Integrity &amp; data trust</span></div>
+        <p class="basis">Reference: claims vs recomputed earned entitlement; sell-in vs secondary sell-out; true stacked discount vs headline; master-sync failure rate.</p>
+        <div id="leaks"></div>
+      </section>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Scheme scoreboard</h3><div class="sub" id="score-sub">ROI by active scheme · vs trailing-12-month baseline</div>
+        <canvas id="roiChart" height="230"></canvas>
+      </div>
+      <div class="card">
+        <h3>Where the money leaks</h3><div class="sub">Composition of trade-spend at risk this window</div>
+        <canvas id="leakChart" height="180"></canvas>
+      </div>
+      <div class="ask">
+        <div class="top"><h3>Ask PromoLens</h3><button class="rst" onclick="resetChat()" title="Start a new conversation">↺ New chat</button><span class="m" id="cmode">copilot</span></div>
+        <div class="stream" id="stream"><div class="msg a">Ask about growth moves, leakage, or a scheme's terms.<div class="mode">Gemini 2.5 · grounded engine</div></div></div>
+        <div class="sgs">
+          <div class="sg" onclick="ask(this.innerText)">Who should I push a scheme to next?</div>
+          <div class="sg" onclick="ask(this.innerText)">Where am I leaving money on the table?</div>
+          <div class="sg" onclick="ask(this.innerText)">Claim window for the putty scheme?</div>
+        </div>
+        <div class="compose"><input id="q" placeholder="Ask about your promotions…" onkeydown="if(event.key==='Enter')ask()"><button class="btn" onclick="ask()">Ask</button></div>
+      </div>
+      <div class="card">
+        <h3>Scheme terms — cited</h3><div class="sub">Grounded in scheme circulars · Vertex AI Search</div>
+        <div class="searchrow"><input id="sq" placeholder="e.g. eligibility for the putty in-bill discount" onkeydown="if(event.key==='Enter')schemeSearch()"><button class="btn g" onclick="schemeSearch()">Search</button></div>
+        <div id="sr" class="sub" style="margin:0">Ask about payout %, claim window, eligibility or product scope — cites the exact clause and flags superseded versions.</div>
+      </div>
+      <div class="card">
+        <h3>Design a scheme — forecast</h3><div class="sub">Model a new scheme on a proven one · conservative → optimistic band, before you commit spend</div>
+        <div class="searchrow"><select id="wfsel" class="wfsel"></select><button class="btn g" onclick="whatif()">Forecast</button></div>
+        <div id="wfout" class="sub" style="margin:0">Pick a proven scheme as a template to project a launch-ready P&amp;L band for a look-alike scheme.</div>
+      </div>
+      <div class="card">
+        <h3>Leadership &amp; claims</h3>
+        <div class="tools">
+          <button class="btn o" onclick="report()">◈ Exec growth report</button>
+          <button class="btn o" onclick="document.getElementById('cf').click()">▣ Check a claim (Vision)</button>
+          <input id="cf" type="file" accept="image/*" style="display:none" onchange="claimCheck(this)">
+        </div>
+        <div class="rep" id="rep"></div>
+        <div id="claim" style="display:none;font-size:13px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="method">
+    <b>How to read this brief.</b> Every figure is computed by a deterministic Python engine over the manufacturer's promotion tables in BigQuery — never generated by the language model; Gemini narrates and routes. <b>ROI</b> = incremental value net of scheme outflow, measured against a trailing-12-month baseline for the scheme's SKUs and region. <b>Growth on the table</b> sums the Next-Best-Scheme upside across eligible partners (each on its own base × the scheme's slab × that partner's historical uptake). <b>Untapped upside</b> benchmarks each partner against its same-tier peer median. <b>Leaking now</b> = claims above earned entitlement + inventory-loading signals. All companies and data are synthetic (DuraBuild / NovaCure / SunPeak). · PromoLens AI · Team LeakSeek · Gen AI Academy APAC 2026.
+  </div>
+</div>
+
 <script>
-  // Set after Cloud Run deploy:  window.PROMOLENS_API = "https://<service>-<hash>-as.a.run.app"
-  const API = (window.PROMOLENS_API || localStorage.getItem("promolens_api") || "").replace(/\/$/,"");
-  let session = null;
-  const chat = document.getElementById("chat"), q = document.getElementById("q"), send = document.getElementById("send");
-  const samples = [
-    "Which building-materials schemes worked and which gave away margin?",
-    "Which distributors have high sell-in but flat sell-out?",
-    "Are any claims above the entitlement partners earned?",
-    "What's the real effective discount on putty after stacking?",
-    "Why didn't the tile-adhesive scheme apply, and what's active?",
-    "Design a Rajasthan OPC scheme: +12% growth at 1.75% slab."
-  ];
-  const chips = document.getElementById("chips");
-  samples.forEach(s=>{const c=document.createElement("div");c.className="chip";c.textContent=s;c.onclick=()=>{q.value=s;ask();};chips.appendChild(c);});
-  function add(role,text){const m=document.createElement("div");m.className="msg "+role;const b=document.createElement("div");b.className="bubble";b.textContent=text;m.appendChild(b);chat.appendChild(m);chat.scrollTop=chat.scrollHeight;return b;}
-  async function ask(){
-    const text=q.value.trim(); if(!text) return;
-    if(!API){add("bot","⚠️ API endpoint not set. After deploying Cloud Run, run in console: localStorage.setItem('promolens_api','https://YOUR-RUN-URL')");return;}
-    add("user",text); q.value=""; send.disabled=true;
-    const b=add("bot","…thinking…");
-    try{
-      const r=await fetch(API+"/chat",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message:text,session_id:session})});
-      const j=await r.json(); session=j.session_id||session; b.textContent=j.answer||"(no answer)";
-    }catch(e){b.textContent="Error: "+e.message;}
-    send.disabled=false; chat.scrollTop=chat.scrollHeight;
-  }
-  send.onclick=ask; q.addEventListener("keydown",e=>{if(e.key==="Enter")ask();});
+const $=id=>document.getElementById(id);
+const R=n=>{n=+n||0;const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(1)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
+let WIN=null, roiChart=null, leakChart=null, LEAK=0;
+$('dl-date').innerText=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+async function loadWindows(){try{const j=await(await fetch('/api/windows')).json();
+  $('win').innerHTML=j.windows.map(w=>`<option value="${w.key}" ${w.default?'selected':''}>${w.label}</option>`).join('');}catch(e){}}
+function q(){return WIN&&WIN!=='ttm'?('?win='+encodeURIComponent(WIN)):'';}
+async function loadAll(){WIN=$('win').value;dashboard();nba();missed();report(true);}
+
+async function dashboard(){try{const d=await(await fetch('/api/dashboard'+q())).json();
+  $('dl-win').innerText=d.window_label||'Last 12 months';
+  const rank=d.schemes||[];$('dl-active').innerText=rank.length;
+  const sel=$('wfsel');if(sel&&rank.length){sel.innerHTML=rank.map(s=>`<option value="${s.scheme_id}">${(s.name||s.scheme_id).slice(0,34)} — ${s.roi}×</option>`).join('');}
+  const wf=$('wfsel'); if(wf&&rank.length){wf.innerHTML=rank.map(s=>'<option value="'+s.scheme_id+'">'+s.name+' — '+s.roi+'× ROI</option>').join('');}
+  const best=rank[0];
+  $('s-roi').innerText=best?best.roi+'×':'—';$('s-roi-r').innerText=best?('Best: '+best.name+' · vs trailing-12m baseline'):'—';
+  $('s-leak').innerText=R(d.overclaims?.total_at_risk||0);$('s-leak-r').innerText=(d.overclaims?.count||0)+' over-claims · '+((d.leaks||[]).length)+' loading signals';
+  LEAK=(d.overclaims?.total_at_risk||0);
+  $('st-leak').innerText=R(LEAK);$('st-leak-n').innerText=(d.overclaims?.count||0)+' over-claims + '+((d.leaks||[]).length)+' inventory-loading signals';
+  const prof=rank.filter(s=>s.roi>1).length;const fail=d.trust?.fail_rate_pct||0;
+  const health=rank.length?Math.round(0.6*(prof/rank.length)*100+0.4*Math.max(0,100-fail*3)):0;
+  $('s-health').innerText=health+'/100';$('s-health-r').innerText=prof+' of '+rank.length+' schemes profitable';
+  // scoreboard chart
+  const top=rank.slice(0,6);
+  if(roiChart)roiChart.destroy();
+  roiChart=new Chart($('roiChart'),{type:'bar',data:{labels:top.map(s=>s.name.replace(/ - /g,'\n').slice(0,26)),
+    datasets:[{data:top.map(s=>s.roi),backgroundColor:top.map(s=>s.roi>1?'#1f7a4d':(s.roi<0.3?'#b3392b':'#a9791f')),borderRadius:3,barThickness:16}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+'× return per ₹1'}}},
+      scales:{x:{grid:{color:'#ece7db'},ticks:{font:{family:'IBM Plex Mono',size:10},callback:v=>v+'×'}},
+              y:{grid:{display:false},ticks:{font:{family:'Inter',size:10.5},color:'#41434a'}}}}});
+  // leak composition
+  const oc=d.overclaims?.total_at_risk||0;
+  const loadUnits=(d.leaks||[]).reduce((s,x)=>s+Math.max(0,(x.sell_in-x.sell_out)),0);
+  const stackPct=d.stacking?.avg_effective_discount_pct||0;
+  if(leakChart)leakChart.destroy();
+  leakChart=new Chart($('leakChart'),{type:'doughnut',data:{labels:['Over-claims (₹ at risk)','Inventory-loading (units)','Stacking (eff. disc %)'],
+    datasets:[{data:[oc, loadUnits*100, stackPct*1000],backgroundColor:['#b3392b','#a9791f','#173a5e'],borderColor:'#fffdf9',borderWidth:2}]},
+    options:{cutout:'62%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:10.5},boxWidth:10,padding:10}}}}});
+  // leaks list
+  let lh='';const ocr=d.overclaims||{rows:[]};
+  if(ocr.rows&&ocr.rows.length){const t=ocr.rows[0];lh+=row('!','risk',`Over-claims — ${R(ocr.total_at_risk)} at risk`,`${ocr.count} claim(s) above earned entitlement. Largest: ${t.name} claimed ${R(t.claimed_amount)} vs earned ${R(t.earned)}.`,'→ Recover before next payout','');}
+  (d.leaks||[]).slice(0,3).forEach(l=>{lh+=row('▦','risk',`${l.name} · ${l.sku_code}`,`Inventory loading — sell-out only ${Math.round(l.sellthrough*100)}% of sell-in; ${Math.round(l.closing)} units piled up.`,'→ Verify real sell-out before paying','');});
+  if(d.stacking?.avg_effective_discount_pct)lh+=row('≡','risk','Putty discount stacking',`True effective discount ~${d.stacking.avg_effective_discount_pct}% vs a ~5% headline.`,'→ Cap per-invoice discount','');
+  if(d.trust?.fail_rate_pct)lh+=row('⟳','risk','Data trust',`${d.trust.fail_rate_pct}% of records failed to sync cleanly — figures are only as good as this data.`,'','');
+  $('leaks').innerHTML=lh||'<p class="basis">No leakage signals in this window.</p>';
+}catch(e){}}
+
+function row(mark,cls,title,desc,cta,amt){var c=cta?('<b style="color:var(--red)">'+cta+'</b>'):'';
+  return '<div class="item"><div class="rank '+cls+'">'+mark+'</div>'+
+    '<div><div class="t">'+title+'</div><div class="d">'+desc+' '+c+'</div></div>'+
+    '<div class="amt">'+(amt||'')+'</div></div>';}
+
+async function nba(){$('nba').innerHTML='<div class="skel" style="height:70px"></div>';
+  try{const d=await(await fetch('/api/nba'+q())).json();const recs=d.recommendations||[];$('nba-meta').innerText='Top '+Math.min(8,recs.length)+' of '+d.count+' scored';
+  if(!recs.length){$('nba').innerHTML='<p class="basis">No eligible moves in this window.</p>';return;}
+  const max=Math.max.apply(null,recs.map(r=>r.expected_incremental||0).concat([1]));
+  const totalUp=recs.filter(r=>!r.constraint).reduce((s,r)=>s+(r.expected_incremental||0),0);
+  $('s-up').innerText='+'+R(totalUp);
+  $('s-up-r').innerText='Sum of top moves across '+recs.filter(r=>!r.constraint).length+' eligible partners';
+  $('st-act').innerText='+'+R(totalUp);$('st-act-n').innerText=recs.filter(r=>!r.constraint).length;
+  $('st-net').innerText='+'+R(totalUp+LEAK);
+  $('nba').innerHTML=recs.slice(0,8).map(function(r,i){
+    var risk=r.constraint;
+    var pill=risk?'<span class="pill fix">Fix first</span>':'';
+    var basis=risk?'':('<div class="basis-inline">base '+R(r.base_value)+' · assumes +'+r.ask_growth_pct+'% uptake · '+r.expected_roi+'× net of ~'+r.payout_pct+'% payout</div>');
+    var track=risk?'':('<div class="track"><i style="width:'+Math.max(6,(r.expected_incremental/max*100))+'%;background:var(--green)"></i></div>');
+    var amt=risk?'—':('+'+R(r.expected_incremental));
+    return '<div class="item"><div class="rank '+(risk?'risk':'go')+'">'+(risk?'!':(i+1))+'</div>'+
+      '<div><div class="t">'+r.name+' <span class="who">· '+(r.state||'')+' · tier '+(r.tier||'')+'</span> '+pill+'</div>'+
+      '<div class="d">'+r.action+'</div>'+basis+track+'</div>'+
+      '<div class="amt g">'+amt+'<small>'+(risk?'attention':'exp. uplift')+'</small></div></div>';}).join('');
+}catch(e){$('nba').innerHTML='<p class="basis">Could not load recommendations.</p>';}}
+
+async function missed(){$('missed').innerHTML='<div class="skel" style="height:60px"></div>';
+  try{const d=await(await fetch('/api/missed'+q())).json();const ops=d.opportunities||[];
+  if(!ops.length){$('missed').innerHTML='<p class="basis">No clear peer-gap opportunities in this window.</p>';return;}
+  $('missed').innerHTML=ops.map((o,i)=>`<div class="item"><div class="rank">${i+1}</div>
+    <div><div class="t">${o.name} <span class="who">· ${o.sku_code} · tier ${o.tier||''}</span></div>
+    <div class="d">Covered by "${o.scheme}". → Target with the covering scheme.</div>
+    <div class="basis-inline">pulls ${o.current_qty} vs same-tier peer median ${o.peer_median_qty}</div>
+    <div class="track"><i style="width:${Math.min(100,o.current_qty/o.peer_median_qty*100)}%;background:var(--sky)"></i></div></div>
+    <div class="amt s">+${R(o.est_uplift_value)}<small>peer-gap upside</small></div></div>`).join('');
+}catch(e){$('missed').innerHTML='<p class="basis">Could not load opportunities.</p>';}}
+
+function push(cls,html){const s=$('stream');const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;s.appendChild(d);s.scrollTop=s.scrollHeight;return d;}
+function resetChat(){$('stream').innerHTML='<div class="msg a">New conversation. Ask about growth moves, leakage, or a scheme\'s terms.<div class="mode">Gemini 2.5 · grounded engine</div></div>';$('cmode').innerText='copilot';$('q').value='';$('q').focus();}
+async function whatif(){const id=$('wfsel').value;if(!id)return;$('wfout').innerHTML='<div class="skel" style="height:64px"></div>';
+  try{const j=await(await fetch('/api/whatif?scheme_id='+encodeURIComponent(id)+(WIN&&WIN!=='ttm'?'&win='+encodeURIComponent(WIN):''))).json();
+    if(j.error||!j.base){$('wfout').innerText='Could not forecast this template.';return;}
+    const l=j.low,b=j.base,h=j.high;
+    $('wfout').innerHTML='<div style="font-size:11.5px;color:var(--ink2);margin-bottom:9px">Modelled on <b>'+j.template_name+'</b> · '+j.region+' · assumes +'+j.assumed_growth_pct+'% uptake at ~'+j.assumed_payout_pct+'% payout</div>'+
+      '<div class="wfband"><div><span class="k">Conservative</span><b>+'+R(l.incremental_value)+'</b><small>'+l.projected_roi+'× ROI</small></div>'+
+      '<div class="mid"><span class="k">Base case</span><b class="g">+'+R(b.incremental_value)+'</b><small>'+b.projected_roi+'× ROI</small></div>'+
+      '<div><span class="k">Optimistic</span><b>+'+R(h.incremental_value)+'</b><small>'+h.projected_roi+'× ROI</small></div></div>'+
+      '<div class="basis-inline" style="margin-top:9px">'+(j.summary||'')+'</div>';
+  }catch(e){$('wfout').innerText='Forecast unavailable.';}}
+async function ask(t){const inp=$('q');const msg=(t&&typeof t==='string')?t:inp.value.trim();if(!msg)return;inp.value='';push('u',msg);
+  const load=push('a','<span class="skel" style="width:120px;height:13px;display:inline-block">&nbsp;</span>');
+  try{const j=await(await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,window:WIN})})).json();
+    load.innerHTML=(j.answer||'—').replace(/\n/g,'<br>')+`<div class="mode">${j.mode==='llm'?'Gemini 2.5 · grounded':'engine · deterministic'}</div>`;
+    $('cmode').innerText=j.mode==='llm'?'Gemini 2.5':'engine';}catch(e){load.innerHTML='Could not reach the copilot.';}}
+
+async function schemeSearch(){const v=$('sq').value.trim();if(!v)return;$('sr').innerHTML='<div class="skel" style="height:46px"></div>';
+  try{const j=await(await fetch('/api/scheme-search?q='+encodeURIComponent(v))).json();
+    let h=`<div style="font-size:13px;color:var(--ink);line-height:1.55">${j.answer||'No match.'}</div>`;
+    if(j.conflict)h+=`<div class="cite" style="border-color:var(--gold);background:rgba(169,121,31,.07)">⚠ ${j.conflict.note}</div>`;
+    (j.citations||[]).slice(0,2).forEach(c=>{h+=`<div class="cite"><b>${c.scheme} — ${c.clause}</b><br>${(c.excerpt||'').replace(/\n/g,' ')}</div>`;});
+    $('sr').innerHTML=h;$('sr').style.marginBottom='0';}catch(e){$('sr').innerHTML='Search unavailable.';}}
+
+function resetChat(){$('stream').innerHTML='<div class="msg a">New conversation. Ask about growth moves, leakage, or a scheme\'s terms.<div class="mode">Gemini 2.5 · grounded engine</div></div>';$('cmode').innerText='copilot';$('q').value='';$('q').focus();}
+
+async function whatif(){const id=$('wfsel').value;if(!id)return;$('wfout').innerHTML='<div class="skel" style="height:64px"></div>';
+  try{const j=await(await fetch('/api/whatif?scheme_id='+encodeURIComponent(id)+(WIN&&WIN!=='ttm'?'&win='+encodeURIComponent(WIN):''))).json();
+    if(j.error||!j.base){$('wfout').innerText='Could not forecast this template.';return;}
+    const l=j.low,b=j.base,h=j.high;
+    $('wfout').innerHTML='<div style="font-size:11.5px;color:var(--ink2);margin-bottom:9px">Modelled on <b>'+j.template_name+'</b> · '+j.region+' · assumes +'+j.assumed_growth_pct+'% uptake at '+j.assumed_payout_pct+'% payout</div>'+
+      '<div class="wfband">'+
+      '<div><span class="k">Conservative</span><b>'+R(l.incremental_value)+'</b><small>'+l.projected_roi+'× · '+R(l.projected_outflow)+' spend</small></div>'+
+      '<div class="mid"><span class="k">Base case</span><b class="g">'+R(b.incremental_value)+'</b><small>'+b.projected_roi+'× · '+R(b.projected_outflow)+' spend</small></div>'+
+      '<div><span class="k">Optimistic</span><b>'+R(h.incremental_value)+'</b><small>'+h.projected_roi+'× · '+R(h.projected_outflow)+' spend</small></div>'+
+      '</div><div class="basis-inline" style="margin-top:9px">'+(j.summary||'')+'</div>';
+  }catch(e){$('wfout').innerText='Forecast unavailable.';}}
+
+async function report(silent){const rep=$('rep');
+  try{const j=await(await fetch('/api/report'+q())).json();
+    $('narr-body').innerText=j.narrative||'';
+    if(!silent){rep.style.display='block';rep.innerHTML=`<div class="h">Executive growth briefing · health ${j.health}/100 · ${j.mode==='llm'?'Gemini-written':'engine'}</div>${j.narrative}`;}
+  }catch(e){if(!silent)rep.innerHTML='Report unavailable.';}}
+
+async function claimCheck(el){const f=el.files[0];if(!f)return;const b=$('claim');b.style.display='block';b.innerHTML='<div class="skel" style="height:40px"></div>';
+  const fd=new FormData();fd.append('file',f);
+  try{const j=await(await fetch('/api/claim-check',{method:'POST',body:fd})).json();
+    const c=j.verdict==='OVER-CLAIM'?'var(--red)':(j.verdict==='OK'?'var(--green)':'var(--gold)');
+    b.innerHTML=`<b style="color:${c}">${j.verdict||j.mode}</b><div class="d" style="color:var(--ink2);margin-top:4px">${j.note||''}</div>`;}catch(e){b.innerHTML='Claim check unavailable.';}}
+
+loadWindows().then(loadAll);
 </script>
 </body>
 </html>

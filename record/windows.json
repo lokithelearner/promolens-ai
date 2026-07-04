@@ -1,0 +1,1 @@
+{"windows": [{"key": "ttm", "label": "Last 12 months (benchmark)", "default": true}, {"key": "FY2025-26", "label": "FY2025-26", "default": false}, {"key": "FY2024-25", "label": "FY2024-25", "default": false}, {"key": "FY2023-24", "label": "FY2023-24", "default": false}]}

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PromoLens AI — Trade Promotion Intelligence</title>
+<script>
+// minimal offline Chart shim (horizontal bars) — replaces blocked CDN for recording
+class Chart{
+  constructor(cv,cfg){
+    const g=cv.getContext('2d');
+    const W=cv.width=cv.clientWidth*2, H=cv.height=cv.clientHeight*2;
+    const data=cfg.data.datasets[0].data, labels=cfg.data.labels, colors=cfg.data.datasets[0].backgroundColor;
+    g.clearRect(0,0,W,H);
+    const maxv=Math.max(...data.map(v=>Math.abs(v)),1);
+    const padL=W*0.32, padR=W*0.10, padT=12, padB=14;
+    const gap=(H-padT-padB)/data.length, bh=gap*0.55;
+    const scale=(W-padL-padR)/maxv;
+    g.font='600 22px Segoe UI, Arial'; g.textBaseline='middle';
+    data.forEach((v,i)=>{
+      const y=padT+gap*i+gap/2, w=Math.max(3,Math.abs(v)*scale);
+      g.fillStyle=colors[i]||'#6f8fd6';
+      g.beginPath(); g.roundRect ? g.roundRect(padL,y-bh/2,w,bh,6) : g.rect(padL,y-bh/2,w,bh); g.fill();
+      g.fillStyle='#1b2a4e'; g.textAlign='right'; g.fillText(String(labels[i]).slice(0,24), padL-14, y);
+      g.fillStyle=(v<0?'#e23b4e':'#46557a'); g.textAlign='left'; g.fillText('Rs '+v, padL+w+10, y);
+    });
+  }
+  destroy(){}
+}
+window.Chart=Chart;
+</script>
+<style>
+  :root{
+    --bg:#eef2f9; --card:#ffffff; --navy:#16264f; --navy2:#1f3568; --red:#e23b4e;
+    --ink:#1b2a4e; --mut:#6b7794; --line:#e4e9f2; --green:#1f9d6b; --amber:#e0902b;
+    --shadow:0 6px 22px rgba(22,38,79,.08); --wrap:1440px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 26px;}
+  header{background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(22,38,79,.05);position:sticky;top:0;z-index:30;}
+  header .wrap{display:flex;align-items:center;gap:18px;padding:12px 26px;}
+  .brand{display:flex;align-items:center;gap:13px;}
+  .brand .name{font-size:24px;font-weight:800;color:var(--navy);letter-spacing:-.6px;line-height:1;}
+  .brand .name sup{color:var(--red);font-size:13px;font-weight:800;margin-left:2px;}
+  .brand .name small{display:block;font-size:9.5px;font-weight:700;letter-spacing:2.5px;color:var(--mut);margin-top:3px;}
+  .tagline{font-size:13px;color:var(--mut);border-left:2px solid var(--red);padding-left:13px;margin-left:auto;}
+  .tagline b{color:var(--red);}
+  .context{padding:20px 0 4px;}
+  .context h1{font-size:21px;font-weight:800;color:var(--navy);}
+  .context h1 .role{color:var(--red);}
+  .context p{font-size:13.5px;color:var(--mut);margin-top:4px;max-width:880px;}
+  .context p b{color:var(--navy);}
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:14px 0;}
+  .kpi{background:var(--card);border-radius:14px;box-shadow:var(--shadow);border-top:3px solid var(--red);padding:17px 20px 11px;position:relative;overflow:hidden;}
+  .kpi .lbl{font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--mut);text-transform:uppercase;}
+  .kpi .v{font-size:34px;font-weight:800;color:var(--navy);line-height:1.04;margin-top:6px;}
+  .kpi .v.red{color:var(--red);} .kpi .v.green{color:var(--green);}
+  .kpi .sub{font-size:12px;color:var(--mut);margin-top:3px;}
+  .kpi .spark{position:absolute;right:16px;bottom:13px;width:100px;height:32px;opacity:.95;}
+  .kpi .bar{height:7px;border-radius:5px;background:#eef0f6;margin-top:10px;overflow:hidden;}
+  .kpi .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),#ff7a87);border-radius:5px;}
+  /* two-pane cockpit */
+  .cockpit{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(330px,1fr);gap:22px;align-items:start;padding:6px 0 10px;}
+  .sec-h{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--mut);margin:4px 2px 10px;display:flex;align-items:center;gap:8px;font-weight:800;}
+  .sec-h .dot{width:9px;height:9px;border-radius:3px;}
+  .sec-h.a .dot{background:var(--red);} .sec-h.w .dot{background:var(--green);} .sec-h.k .dot{background:var(--amber);}
+  .subrow{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;margin-top:6px;}
+  .card{background:var(--card);border-radius:13px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:11px;border-left:4px solid var(--mut);transition:transform .12s ease,box-shadow .12s ease;}
+  .card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(22,38,79,.12);}
+  .card.win{border-left-color:var(--green);} .card.act{border-left-color:var(--red);} .card.watch{border-left-color:var(--amber);}
+  .card .t{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:3px;line-height:1.3;}
+  .card .d{font-size:12.5px;color:#46557a;line-height:1.5;}
+  .card .d b{color:var(--navy);}
+  .card .do{font-size:12px;margin-top:7px;font-weight:800;}
+  .card.win .do{color:var(--green);} .card.act .do{color:var(--red);} .card.watch .do{color:var(--amber);}
+  .card .imp{float:right;font-size:15px;font-weight:800;margin-left:9px;}
+  .card.win .imp{color:var(--green);} .card.act .imp{color:var(--red);} .card.watch .imp{color:var(--amber);}
+  /* chart */
+  .chartcard{background:var(--card);border-radius:13px;box-shadow:var(--shadow);padding:15px 17px 11px;margin-top:14px;}
+  .chartcard .ttl{font-size:13.5px;font-weight:800;color:var(--navy);margin-bottom:8px;}
+  .chartbox{position:relative;height:280px;width:100%;}
+  .chartcard .cap{font-size:11.5px;color:var(--mut);padding:9px 2px 2px;line-height:1.45;}
+  .chartcard .cap b{color:var(--green);} .chartcard .cap i{color:var(--red);font-style:normal;}
+  /* copilot rail */
+  .railwrap{position:sticky;top:84px;}
+  .copilot{background:var(--card);border-radius:16px;box-shadow:0 12px 32px rgba(22,38,79,.14);display:flex;flex-direction:column;height:calc(100vh - 108px);min-height:520px;overflow:hidden;border:1px solid #d9e1f1;}
+  .copilot .ch-h{padding:15px 18px;background:linear-gradient(100deg,var(--navy),var(--navy2));color:#fff;display:flex;align-items:center;gap:11px;}
+  .copilot .ch-h .ic{width:30px;height:30px;border-radius:8px;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto;}
+  .copilot .ch-h .ti{font-size:15px;font-weight:800;line-height:1.2;}
+  .copilot .ch-h .ti span{display:block;font-size:11px;font-weight:500;color:#bcd0f5;margin-top:2px;}
+  .copilot .ch-h .clr{margin-left:auto;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.32);color:#fff;border-radius:8px;padding:6px 11px;font-size:11.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.12s;flex:0 0 auto;}
+  .copilot .ch-h .clr:hover{background:var(--red);border-color:var(--red);}
+  #chat{flex:1;overflow-y:auto;padding:15px 16px;display:flex;flex-direction:column;gap:11px;background:#f7f9fd;}
+  .welcome{color:var(--mut);font-size:13.5px;text-align:center;margin:auto;max-width:300px;line-height:1.7;}
+  .welcome b{color:var(--navy);}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 16px;background:#f7f9fd;border-top:1px solid var(--line);}
+  .chip{background:#fff;border:1px solid #d2dcf0;border-radius:16px;padding:7px 11px;font-size:11.5px;color:var(--navy);cursor:pointer;font-weight:600;transition:.12s;}
+  .chip:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .msg{display:flex;} .msg.user{justify-content:flex-end;}
+  .bubble{padding:11px 14px;border-radius:13px;max-width:88%;font-size:13.5px;line-height:1.55;white-space:pre-wrap;}
+  .user .bubble{background:var(--navy);color:#fff;border-bottom-right-radius:3px;}
+  .bot .bubble{background:#fff;border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:3px;box-shadow:0 2px 6px rgba(22,38,79,.05);}
+  footer.cw{padding:13px 15px;display:flex;gap:9px;border-top:1px solid var(--line);background:#fff;}
+  #q{flex:1;padding:12px 15px;border:1.5px solid #c9d2e8;border-radius:11px;font-size:13.5px;outline:none;color:var(--ink);}
+  #q:focus{border-color:var(--red);}
+  #send{background:var(--red);color:#fff;border:none;border-radius:11px;padding:0 22px;font-weight:800;font-size:14px;cursor:pointer;}
+  .pagefoot{text-align:center;color:var(--mut);font-size:11.5px;padding:18px 0 26px;}
+  @media(max-width:1080px){.cockpit{grid-template-columns:1fr;}.kpis{grid-template-columns:1fr;}.subrow{grid-template-columns:1fr;}.tagline{display:none;}.railwrap{position:static;}.copilot{height:460px;}}
+  /* action toolbar + modal */
+  .tools{display:flex;gap:10px;padding:8px 0 2px;flex-wrap:wrap;align-items:center;}
+  .winsel{appearance:none;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2316264f'/></svg>") no-repeat right 12px center;border:1.5px solid #c9d2e8;border-radius:10px;padding:10px 32px 10px 14px;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer;}
+  .winsel:focus{outline:none;border-color:var(--red);}
+  .winlbl{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);margin-right:-4px;}
+  .tbtn{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:var(--shadow);transition:.12s;}
+  .tbtn:hover{background:var(--red);transform:translateY(-1px);}
+  .tbtn.ghost{background:#fff;color:var(--navy);border:1px solid #d2dcf0;}
+  .tbtn.ghost:hover{background:var(--navy);color:#fff;}
+  .modal{position:fixed;inset:0;background:rgba(16,28,63,.5);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;}
+  .modal.on{display:flex;}
+  .modal .box{background:#fff;border-radius:16px;max-width:620px;width:100%;box-shadow:0 24px 60px rgba(16,28,63,.4);overflow:hidden;max-height:88vh;display:flex;flex-direction:column;}
+  .modal .mh{background:linear-gradient(100deg,var(--navy),var(--navy2));color:#fff;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;}
+  .modal .mh .ti{font-size:16px;font-weight:800;}
+  .modal .mh .x{cursor:pointer;font-size:22px;line-height:1;background:none;border:none;color:#fff;opacity:.85;}
+  .modal .mb{padding:20px;overflow-y:auto;font-size:14px;line-height:1.65;color:var(--ink);}
+  .modal .mb .hbadge{display:inline-block;background:#eef1f8;color:var(--navy);font-weight:800;border-radius:20px;padding:5px 14px;font-size:12.5px;margin-bottom:13px;}
+  .modal .mb .verdict{font-weight:800;font-size:15px;padding:8px 14px;border-radius:9px;display:inline-block;margin-bottom:11px;}
+  .modal .mb .verdict.bad{background:#fdeef0;color:var(--red);} .modal .mb .verdict.ok{background:#e9f7f1;color:var(--green);} .modal .mb .verdict.rev{background:#fdf3e3;color:var(--amber);}
+  .modal .mb pre{white-space:pre-wrap;background:#f7f9fd;border-radius:8px;padding:9px 11px;font-size:12px;color:#46557a;margin-top:9px;}
+  .modal .mb .src{font-size:11px;color:var(--mut);margin-top:15px;border-top:1px solid var(--line);padding-top:9px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="19" cy="19" r="14.5" fill="#fff" stroke="#16264f" stroke-width="2.4"/>
+        <rect x="12" y="20" width="3.4" height="7" rx="1" fill="#16264f"/>
+        <rect x="17" y="16" width="3.4" height="11" rx="1" fill="#9fb0d0"/>
+        <rect x="22" y="13" width="3.4" height="14" rx="1" fill="#16264f"/>
+        <path d="M12 22 L18 17 L22 19 L27 12" stroke="#e23b4e" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M24 12 L27 12 L27 15" stroke="#e23b4e" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="29" y="29" width="11" height="4.6" rx="2.3" transform="rotate(45 29 29)" fill="#16264f"/>
+      </svg>
+      <div class="name">PromoLens<sup>AI</sup><small>TRADE PROMOTION INTELLIGENCE</small></div>
+    </div>
+    <div class="tagline">Stop burning <b>crores</b> on promotions you can't measure.</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="context">
+    <h1>Trade-promotion cockpit — <span class="role">National view</span></h1>
+    <p>Where your promotion money is working, where it's leaking, and exactly what to act on — in plain numbers, no spreadsheets. <b id="winNote">All figures cover the last 12 months.</b></p>
+  </div>
+
+  <div class="tools">
+    <span class="winlbl">Timeline</span>
+    <select id="winSel" class="winsel" title="Choose the data timeline"></select>
+    <button class="tbtn" id="reportBtn">📄 Generate leadership report</button>
+    <button class="tbtn ghost" id="claimBtn">📎 Check a claim document</button>
+    <input type="file" id="claimFile" accept="image/*" style="display:none"/>
+  </div>
+
+  <div class="kpis" id="kpis">
+    <div class="kpi"><div class="lbl">Promotion ROI</div><div class="v green" id="k-roi">—</div><div class="sub">returned per ₹1 spent</div><svg class="spark" id="sp1" viewBox="0 0 100 32"></svg></div>
+    <div class="kpi"><div class="lbl">Leakage detected</div><div class="v red" id="k-leak">—</div><div class="sub">recoverable / saveable now</div><svg class="spark" id="sp2" viewBox="0 0 100 32"></svg></div>
+    <div class="kpi"><div class="lbl">Scheme health score</div><div class="v" id="k-score">—</div><div class="sub" id="k-score-sub">out of 100</div><div class="bar"><i id="k-bar" style="width:0%"></i></div></div>
+  </div>
+
+  <div class="cockpit">
+    <!-- LEFT: insights -->
+    <div class="insights">
+      <div class="sec-h a"><span class="dot"></span>What needs you — ranked by money at stake</div>
+      <div id="actnow"><div class="card act"><div class="d">Loading live numbers…</div></div></div>
+      <div class="subrow">
+        <div>
+          <div class="sec-h w"><span class="dot"></span>Clear wins — do more of this</div>
+          <div id="wins"></div>
+        </div>
+        <div>
+          <div class="sec-h k"><span class="dot"></span>Keep an eye on these</div>
+          <div id="watch"></div>
+        </div>
+      </div>
+      <div class="chartcard">
+        <div class="ttl">Where every promotion rupee went — return per ₹1 spent</div>
+        <div class="chartbox"><canvas id="roiChart"></canvas></div>
+        <div class="cap">Each bar = return per ₹1 spent. <b>Green = earns back far more than it costs (scale it).</b> <i>Red = lost money (stop or redesign).</i></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: persistent copilot -->
+    <div class="railwrap">
+      <div class="copilot">
+        <div class="ch-h">
+          <div class="ic">💬</div>
+          <div class="ti">Ask Me Anything<span>Your trade-promotion copilot — the number, and the next move</span></div>
+          <button class="clr" id="clearChat" title="Clear chat and start fresh">↻ Clear</button>
+        </div>
+        <div id="chat"><div class="welcome">Ask anything about your schemes — <b>“which scheme should I stop?”</b>, <b>“who is loading inventory?”</b>, <b>“what should I launch next?”</b><br/>Tap a starter below 👇</div></div>
+        <div class="chips" id="chips"></div>
+        <footer class="cw">
+          <input id="q" placeholder="Ask a question…" autocomplete="off"/>
+          <button id="send">Ask</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="box">
+  <div class="mh"><div class="ti" id="mTitle">PromoLens AI</div><button class="x" id="mClose">×</button></div>
+  <div class="mb" id="mBody"></div>
+</div></div>
+
+<div class="pagefoot">PromoLens AI · Trade Promotion Intelligence · © 2026 Lokesh Kadyan</div>
+
+<script>
+  const fmt = n => { n=Number(n)||0; const a=Math.abs(n); if(a>=1e7) return "₹"+(n/1e7).toFixed(2)+" Cr"; if(a>=1e5) return "₹"+(n/1e5).toFixed(1)+" L"; return "₹"+Math.round(n).toLocaleString('en-IN'); };
+  function spark(id,up){ const s=document.getElementById(id); if(!s)return; const pts=up?[2,7,5,11,8,16,14,24]:[16,11,14,8,12,6,9,3]; const path=pts.map((y,i)=>`${i*(100/(pts.length-1))},${32-y}`).join(' '); s.innerHTML=`<polyline points="${path}" fill="none" stroke="#e23b4e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; }
+
+  const samples=["Which scheme should I stop?","Who is loading inventory?","Any claims we shouldn't pay?","Real discount on putty after stacking?","What should I launch next?"];
+  const chips=document.getElementById('chips');
+  samples.forEach(s=>{const c=document.createElement('div');c.className='chip';c.textContent=s;c.onclick=()=>{q.value=s;ask();};chips.appendChild(c);});
+  const chat=document.getElementById('chat'), q=document.getElementById('q'), send=document.getElementById('send');
+  const WELCOME=chat.innerHTML;
+  let session=null, cleared=false;
+  function resetChat(){ chat.innerHTML=WELCOME; cleared=false; session=null; q.value=''; }
+  document.getElementById('clearChat').onclick=resetChat;
+  function add(role,text){ if(!cleared){chat.innerHTML='';cleared=true;} const m=document.createElement('div');m.className='msg '+role;const b=document.createElement('div');b.className='bubble';b.textContent=text;m.appendChild(b);chat.appendChild(m);chat.scrollTop=chat.scrollHeight;return b; }
+  async function ask(){ const t=q.value.trim(); if(!t)return; add('user',t); q.value=''; send.disabled=true; const b=add('bot','…working it out…');
+    try{ const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,session_id:session,window:currentWin})}); const j=await r.json(); session=j.session_id||session; b.textContent=j.answer||'(no answer)'; }
+    catch(e){ b.textContent='Error: '+e.message; } send.disabled=false; chat.scrollTop=chat.scrollHeight; }
+  send.onclick=ask; q.addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
+
+  function card(cls,title,desc,doText,imp){ return `<div class="card ${cls}">${imp?`<span class="imp">${imp}</span>`:''}<div class="t">${title}</div><div class="d">${desc}</div><div class="do">${doText}</div></div>`; }
+
+  // ---- leadership report + multimodal claim check ----
+  const modal=document.getElementById('modal'),mBody=document.getElementById('mBody'),mTitle=document.getElementById('mTitle');
+  document.getElementById('mClose').onclick=()=>modal.classList.remove('on');
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('on');});
+  function showModal(title,html){mTitle.textContent=title;mBody.innerHTML=html;modal.classList.add('on');}
+  document.getElementById('reportBtn').onclick=async()=>{
+    showModal('Leadership report','<div style="color:#6b7794">Writing your monthly briefing…</div>');
+    try{const r=await fetch('/api/report?win='+encodeURIComponent(currentWin));const j=await r.json();
+      showModal('Monthly leadership briefing',`<div class="hbadge">Scheme Health ${j.health}/100 · ${j.headline_at_risk} at risk</div><div>${(j.narrative||'').replace(/\n/g,'<br/>')}</div><div class="src">Generated by PromoLens AI${j.mode==='llm'?' · Gemini 2.5':''} from your last-6-months data.</div>`);
+    }catch(e){showModal('Leadership report','Could not generate right now: '+e.message);}
+  };
+  document.getElementById('claimBtn').onclick=()=>document.getElementById('claimFile').click();
+  document.getElementById('claimFile').onchange=async(ev)=>{
+    const f=ev.target.files[0]; if(!f)return;
+    showModal('Claim check','<div style="color:#6b7794">Reading the document with Gemini Vision…</div>');
+    const fd=new FormData(); fd.append('file',f);
+    try{const r=await fetch('/api/claim-check',{method:'POST',body:fd});const j=await r.json();
+      if(j.mode==='unavailable'){showModal('Claim check','Vision check is unavailable for this project right now.');ev.target.value='';return;}
+      const cls=j.verdict==='OVER-CLAIM'?'bad':(j.verdict==='OK'?'ok':'rev');
+      showModal('Claim check result',`<div class="verdict ${cls}">${j.verdict}</div><div>${j.note||''}</div><pre>${JSON.stringify(j.extracted||{},null,2)}</pre><div class="src">Extracted by Gemini Vision · reconciled against earned entitlement.</div>`);
+    }catch(e){showModal('Claim check','Error: '+e.message);}
+    ev.target.value='';
+  };
+
+  let currentWin='ttm', roiChart=null;
+  function loadDashboard(){
+    fetch('/api/dashboard?win='+encodeURIComponent(currentWin)).then(r=>r.json()).then(render)
+      .catch(()=>{document.getElementById('actnow').innerHTML=card('act','Live data unavailable','Could not reach the data service.','Retry shortly.','');});
+  }
+  function render(d){
+    const note=document.getElementById('winNote');
+    if(note) note.textContent = (currentWin==='ttm') ? 'All figures cover the last 12 months (industry benchmark).' : ('All figures cover '+(d.window_label||currentWin)+'.');
+    const schemes=(d.schemes||[]).filter(x=>x&&typeof x.roi==='number');
+    const oc=d.overclaims||{total_at_risk:0,count:0,rows:[]}; const leaks=d.leaks||[]; const trust=d.trust||{}; const stk=d.stacking||{};
+    const totalOut=schemes.reduce((a,b)=>a+(b.scheme_outflow||0),0);
+    const totalInc=schemes.reduce((a,b)=>a+(b.incremental_value||0),0);
+    const winners=schemes.filter(x=>x.roi>1.5); const duds=schemes.filter(x=>x.roi<0.3);
+    const dudWaste=duds.reduce((a,b)=>a+(b.scheme_outflow||0),0);
+    const recoverable=(oc.total_at_risk||0)+dudWaste;
+    const roiMult=totalOut?(totalInc/totalOut):0;
+
+    document.getElementById('k-roi').textContent="₹"+roiMult.toFixed(1); spark('sp1',true);
+    document.getElementById('k-leak').textContent=fmt(recoverable); spark('sp2',false);
+    const winShare=schemes.length?winners.length/schemes.length:0;
+    const leakRate=totalOut?Math.min(recoverable/totalOut,1):0;
+    const score=Math.round(100*(0.6*winShare+0.4*(1-leakRate)));
+    document.getElementById('k-score').textContent=score; document.getElementById('k-bar').style.width=score+'%';
+    document.getElementById('k-score-sub').textContent=`out of 100 · ${winners.length}/${schemes.length} schemes profitable`;
+
+    let wins=''; winners.slice(0,3).forEach(w=>{ wins+=card('win',w.name,`Earned about <b>₹${w.roi.toFixed(1)} per ₹1</b> spent — clearly working.`,'Do this: scale / repeat.',w.roi.toFixed(1)+'×'); });
+    if(!wins) wins=card('win','No standout winners yet','None of the active schemes are clearly profitable yet.','Do this: tighten targets first.','');
+    document.getElementById('wins').innerHTML=wins;
+
+    let acts=[];
+    duds.forEach(x=>acts.push({m:(x.scheme_outflow||0),h:card('act',x.name+' is losing money',`It returned less than it cost — these sales would have happened anyway. You're giving away margin.`,'Do this: stop or redesign this scheme.',fmt(x.scheme_outflow||0))}));
+    if((oc.total_at_risk||0)>0){ const t=(oc.rows||[])[0]||{}; acts.push({m:oc.total_at_risk,h:card('act','Claims above what partners earned',`${oc.count} claim(s) exceed the entitlement actually earned${t.name?` (largest: ${t.name})`:''}.`,'Do this: recover / block before payout.',fmt(oc.total_at_risk))}); }
+    leaks.slice(0,1).forEach(l=>acts.push({m:(l.sell_in||0),h:card('act','Inventory loading at '+l.name,`Buying a lot but only <b>${Math.round(l.sellthrough*100)}%</b> is selling through (${l.state}). Stock is piling up to claim incentives, not real demand.`,'Do this: pause further dispatch & verify sell-out.','')}));
+    acts.sort((a,b)=>b.m-a.m);
+    document.getElementById('actnow').innerHTML=acts.length? acts.map(a=>a.h).join(''):card('act','Nothing urgent','No money at immediate risk this cycle.','Keep monitoring weekly.','');
+
+    let watch='';
+    if(stk.avg_effective_discount_pct){ watch+=card('watch','Discounts are quietly stacking up',`On putty, schemes pile on to about <b>${stk.avg_effective_discount_pct}%</b> effective discount (vs a ~5% headline). Margin leaks without anyone deciding it.`,'Do this: cap total discount per invoice.',stk.avg_effective_discount_pct+'%'); }
+    if(trust.fail_rate_pct){ watch+=card('watch',"Some sales data isn't syncing",`<b>${trust.fail_rate_pct}%</b> of sales records failed to sync${(trust.top_reasons&&trust.top_reasons[0])?` (mostly: ${trust.top_reasons[0].reason})`:''}. Numbers are only as good as this data.`,'Do this: fix master data / re-sync.',trust.fail_rate_pct+'%'); }
+    const mods=schemes.filter(x=>x.roi>=0.3&&x.roi<=1.5);
+    if(mods.length){ watch+=card('watch',mods.length+' borderline scheme(s)','Roughly break-even — not winning, not losing. Easy to waste money by scaling blindly.','Do this: tweak targets, then re-check.',''); }
+    document.getElementById('watch').innerHTML=watch||card('watch','All steady','Nothing on the watchlist right now.','','');
+
+    if(roiChart){roiChart.destroy();roiChart=null;}
+    if(schemes.length){ const top=schemes.slice(0,7);
+      roiChart=new Chart(document.getElementById('roiChart'),{type:'bar',data:{labels:top.map(x=>x.name.replace(/ - /g,' ').slice(0,22)),datasets:[{data:top.map(x=>x.roi),backgroundColor:top.map(x=>x.roi<0.3?'#e23b4e':(x.roi>1.5?'#1f9d6b':'#6f8fd6')),borderRadius:5,barThickness:20}]},
+        options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'returns ₹'+c.raw+' per ₹1'}}},scales:{x:{grid:{color:'#eef1f7'},ticks:{color:'#6b7794',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#1b2a4e',font:{size:11}}}}}});
+    }
+  }
+
+  // timeline selector
+  const winSel=document.getElementById('winSel');
+  fetch('/api/windows').then(r=>r.json()).then(d=>{
+    (d.windows||[{key:'ttm',label:'Last 12 months (benchmark)'}]).forEach(w=>{
+      const o=document.createElement('option');o.value=w.key;o.textContent=w.label;if(w.default)o.selected=true;winSel.appendChild(o);
+    });
+  }).catch(()=>{const o=document.createElement('option');o.value='ttm';o.textContent='Last 12 months (benchmark)';winSel.appendChild(o);})
+    .finally(()=>loadDashboard());
+  winSel.onchange=()=>{currentWin=winSel.value;resetChat();loadDashboard();};
+</script>
+</body>
+</html>

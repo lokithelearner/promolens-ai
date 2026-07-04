@@ -1,0 +1,40 @@
+1
+00:00:03,000 --> 00:00:23,000
+Promotion ROI, leakage & scheme health — one screen, no spreadsheets
+
+2
+00:00:23,000 --> 00:00:33,000
+Ranked by money at stake — what needs you
+
+3
+00:00:33,000 --> 00:00:43,000
+Over-claims & inventory loading, flagged with the Rs at risk
+
+4
+00:00:43,000 --> 00:00:56,000
+Clear wins to scale — return per Rs 1 spent
+
+5
+00:00:56,000 --> 00:01:14,000
+Ask Me Anything — Gemini 2.5, grounded in an auditable engine
+
+6
+00:01:14,000 --> 00:01:23,000
+Switch timeline — rolling 12 months or any financial year
+
+7
+00:01:23,000 --> 00:01:31,000
+The whole cockpit recomputes for the chosen year
+
+8
+00:01:31,000 --> 00:01:45,000
+One-click leadership report, written by Gemini
+
+9
+00:01:45,000 --> 00:02:01,000
+Multimodal claim check — Gemini Vision flags over-claims
+
+10
+00:02:01,000 --> 00:02:11,000
+PromoLens AI — built on Google Cloud
+

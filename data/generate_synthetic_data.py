@@ -30,9 +30,19 @@ fake = Faker("en_IN"); Faker.seed(SEED)
 OUT = os.path.join(os.path.dirname(__file__), "csv")
 os.makedirs(OUT, exist_ok=True)
 
-# ---- time frame: 18 months ending 2026-05 ----
-MONTHS = pd.period_range("2024-12", "2026-05", freq="M")          # 18 months
-PROMO_MONTHS = pd.period_range("2025-12", "2026-05", freq="M")    # last 6 active
+# ---- time frame: 3 financial years (Apr 2023 - May 2026), India FY = Apr-Mar ----
+MONTHS = pd.period_range("2023-04", "2026-05", freq="M")          # 38 months
+TODAY = date(2026, 6, 9)
+
+# Each financial year runs a 6-month promotion season (H2: Oct-Mar).
+FYS = [
+    dict(key="FY2023-24", promo=pd.period_range("2023-10", "2024-03", freq="M")),
+    dict(key="FY2024-25", promo=pd.period_range("2024-10", "2025-03", freq="M")),
+    dict(key="FY2025-26", promo=pd.period_range("2025-10", "2026-03", freq="M")),
+]
+# Union of every promo month across FYs (needle uplifts apply in any promo season).
+ALL_PROMO = pd.PeriodIndex(sorted(set(m for fy in FYS for m in fy["promo"])))
+PROMO_MONTHS = FYS[-1]["promo"]    # latest season (kept for backward-compat references)
 
 PLANTED_NEEDLES = {}
 
@@ -136,56 +146,68 @@ def add_scheme(ind, name, archetype, mode, qps_basis, slab_type, sku_scope, regi
         start_date=str(start), end_date=str(end), budget=budget, status=status))
     return scid
 
-p0, p1 = PROMO_MONTHS[0].start_time.date(), PROMO_MONTHS[-1].end_time.date()
-# growth slabs (winner + dud) — building materials
-SC_WIN = add_scheme("BLD","Summer Growth Booster - OPC RJ","growth","QPS","value","running",
-    ["BLD-OPC53","BLD-PPC"],"Rajasthan","A/B/C",
-    [{"growth_pct":5,"payout_pct":1.0},{"growth_pct":10,"payout_pct":1.75},{"growth_pct":18,"payout_pct":2.5}],
-    "cash", p0, p1, 4200000)
-SC_DUD = add_scheme("BLD","Monsoon Growth - OPC UP","growth","QPS","value","running",
-    ["BLD-OPC53","BLD-PPC"],"Uttar Pradesh","A/B/C",
-    [{"growth_pct":4,"payout_pct":1.25},{"growth_pct":8,"payout_pct":2.0}],
-    "cash", p0, p1, 3800000)
-# stacked schemes on putty (the stacking trap) — 4 co-applying schemes
-SC_ST1 = add_scheme("BLD","In-Bill Discount - Putty","value","instant",None,"fixed",
-    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"min_value":0,"payout_pct":2.0}],"discount",p0,p1,1500000)
-SC_ST2 = add_scheme("BLD","Width Scheme - Putty","volume","instant",None,"step",
-    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"min_qty":50,"payout_pct":1.5}],"discount",p0,p1,1200000)
-SC_ST3 = add_scheme("BLD","Core Growth - Putty","growth","QPS","qty","running",
-    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"growth_pct":6,"payout_pct":4.5}],"cash",p0,p1,2600000)
-SC_ST4 = add_scheme("BLD","Cementitious Booster - Putty","value","instant",None,"fixed",
-    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"min_value":0,"payout_pct":4.0}],"discount",p0,p1,1800000)
-# volume free-goods (tile adhesive)
-SC_FG = add_scheme("BLD","Buy-10-Get-1 Tile Adhesive","volume_freegoods","instant",None,"step",
-    ["BLD-TILE-ADH"],"ALL","A/B/C",[{"buy":10,"free":1}],"free_goods",p0,p1,900000)
-# pharma QPS target (over-claim needle here) + a clean one
-SC_PHA_OC = add_scheme("PHA","Cardio QPS - West","target","QPS","qty","step",
-    ["PHA-CARD10","PHA-CARD5","PHA-TELS80"],"Mumbai","A/B/C",
-    [{"target_qty":800,"payout_pct":2.0},{"target_qty":1500,"payout_pct":3.5}],"cash",p0,p1,2200000)
-SC_PHA_OK = add_scheme("PHA","Metabolic QPS - South","target","QPS","value","linear",
-    ["PHA-ATOR10","PHA-GLIM2"],"Vijayawada","A/B/C",
-    [{"target_value":500000,"payout_pct":2.5}],"cash",p0,p1,1600000)
-# renewables club tiers
-SC_REN = add_scheme("REN","Elite Club FY26","club","QPS","value","fixed",
-    ["REN-PNL540","REN-PNL450","REN-INV5K","REN-INV10K"],"ALL","Gold/Silver",
-    [{"tier":"Silver","growth_pct":10,"payout_pct":1.0},{"tier":"Gold","growth_pct":20,"payout_pct":2.0}],
-    "credit_note",p0,p1,5000000)
-# an EXPIRED + a DRAFT scheme (lifecycle)
-add_scheme("BLD","Diwali Growth (closed)","growth","QPS","value","running",["BLD-OPC53"],"Maharashtra","A/B/C",
-    [{"growth_pct":7,"payout_pct":1.5}],"cash",date(2025,10,1),date(2025,11,30),2000000,status="expired")
-add_scheme("BLD","Q3 Draft Proposal","growth","QPS","value","running",["BLD-PPC"],"Gujarat","A/B/C",
+def _status_for(start, end):
+    if end < TODAY: return "expired"
+    if start > TODAY: return "draft"
+    return "active"
+
+# Build the full scheme bundle for EVERY financial year, so each FY view is rich.
+# fy_scheme_ids[fy_key] = dict naming the key schemes for that year (for needle wiring).
+fy_scheme_ids = {}
+yr_short = {"FY2023-24": "FY24", "FY2024-25": "FY25", "FY2025-26": "FY26"}
+for fy in FYS:
+    k = fy["key"]; tag = yr_short[k]
+    p0, p1 = fy["promo"][0].start_time.date(), fy["promo"][-1].end_time.date()
+    st = _status_for(p0, p1)
+    win = add_scheme("BLD", f"Growth Booster - OPC RJ {tag}", "growth", "QPS", "value", "running",
+        ["BLD-OPC53","BLD-PPC"], "Rajasthan", "A/B/C",
+        [{"growth_pct":5,"payout_pct":1.0},{"growth_pct":10,"payout_pct":1.75},{"growth_pct":18,"payout_pct":2.5}],
+        "cash", p0, p1, 4200000, status=st)
+    dud = add_scheme("BLD", f"Monsoon Growth - OPC UP {tag}", "growth", "QPS", "value", "running",
+        ["BLD-OPC53","BLD-PPC"], "Uttar Pradesh", "A/B/C",
+        [{"growth_pct":4,"payout_pct":1.25},{"growth_pct":8,"payout_pct":2.0}],
+        "cash", p0, p1, 3800000, status=st)
+    st1 = add_scheme("BLD", f"In-Bill Discount - Putty {tag}", "value", "instant", None, "fixed",
+        ["BLD-PUTTY-W","BLD-PUTTY-S"], "ALL", "A/B/C", [{"min_value":0,"payout_pct":2.0}], "discount", p0, p1, 1500000, status=st)
+    st2 = add_scheme("BLD", f"Width Scheme - Putty {tag}", "volume", "instant", None, "step",
+        ["BLD-PUTTY-W","BLD-PUTTY-S"], "ALL", "A/B/C", [{"min_qty":50,"payout_pct":1.5}], "discount", p0, p1, 1200000, status=st)
+    st3 = add_scheme("BLD", f"Core Growth - Putty {tag}", "growth", "QPS", "qty", "running",
+        ["BLD-PUTTY-W","BLD-PUTTY-S"], "ALL", "A/B/C", [{"growth_pct":6,"payout_pct":4.5}], "cash", p0, p1, 2600000, status=st)
+    st4 = add_scheme("BLD", f"Cementitious Booster - Putty {tag}", "value", "instant", None, "fixed",
+        ["BLD-PUTTY-W","BLD-PUTTY-S"], "ALL", "A/B/C", [{"min_value":0,"payout_pct":4.0}], "discount", p0, p1, 1800000, status=st)
+    fg = add_scheme("BLD", f"Buy-10-Get-1 Tile Adhesive {tag}", "volume_freegoods", "instant", None, "step",
+        ["BLD-TILE-ADH"], "ALL", "A/B/C", [{"buy":10,"free":1}], "free_goods", p0, p1, 900000, status=st)
+    pha_oc = add_scheme("PHA", f"Cardio QPS - West {tag}", "target", "QPS", "qty", "step",
+        ["PHA-CARD10","PHA-CARD5","PHA-TELS80"], "Mumbai", "A/B/C",
+        [{"target_qty":800,"payout_pct":2.0},{"target_qty":1500,"payout_pct":3.5}], "cash", p0, p1, 2200000, status=st)
+    pha_ok = add_scheme("PHA", f"Metabolic QPS - South {tag}", "target", "QPS", "value", "linear",
+        ["PHA-ATOR10","PHA-GLIM2"], "Vijayawada", "A/B/C",
+        [{"target_value":500000,"payout_pct":2.5}], "cash", p0, p1, 1600000, status=st)
+    ren = add_scheme("REN", f"Elite Club {tag}", "club", "QPS", "value", "fixed",
+        ["REN-PNL540","REN-PNL450","REN-INV5K","REN-INV10K"], "ALL", "Gold/Silver",
+        [{"tier":"Silver","growth_pct":10,"payout_pct":1.0},{"tier":"Gold","growth_pct":20,"payout_pct":2.0}],
+        "credit_note", p0, p1, 5000000, status=st)
+    fy_scheme_ids[k] = dict(win=win, dud=dud, stacking=[st1,st2,st3,st4], fg=fg, pha_oc=pha_oc, pha_ok=pha_ok, ren=ren)
+
+# a DRAFT scheme in the current (in-progress) FY2026-27 — lifecycle realism
+add_scheme("BLD","Q2 Draft Proposal - PPC","growth","QPS","value","running",["BLD-PPC"],"Gujarat","A/B/C",
     [{"growth_pct":6,"payout_pct":1.25}],"cash",date(2026,7,1),date(2026,9,30),2500000,status="draft")
 schemes_master = pd.DataFrame(schemes)
-PLANTED_NEEDLES.update(dict(N1_winner=SC_WIN,N2_dud=SC_DUD,
-    N5_stacking=[SC_ST1,SC_ST2,SC_ST3,SC_ST4],N4_overclaim_scheme=SC_PHA_OC))
+
+# Needles point at the latest FY's schemes (what the default trailing-12m view surfaces).
+_latest = fy_scheme_ids[FYS[-1]["key"]]
+SC_FG = _latest["fg"]; SC_PHA_OC = _latest["pha_oc"]
+PLANTED_NEEDLES.update(dict(N1_winner=_latest["win"], N2_dud=_latest["dud"],
+    N5_stacking=_latest["stacking"], N4_overclaim_scheme=SC_PHA_OC,
+    per_fy={k: v["win"] for k, v in fy_scheme_ids.items()}))
 
 # -----------------------------------------------------------------------------
 # 5. SALES (primary + secondary), STOCK, BASELINE
 # -----------------------------------------------------------------------------
 prim, sec, stock, base = [], [], [], []
 oid = 0; tid = 0
-def seasonal(m):  # cement dips in monsoon (Jul-Sep), builds in summer
-    return 1.0 + 0.18*math.sin((m.month-3)/12*2*math.pi)
+def seasonal(m):  # mild seasonality so promo uplift (not season) drives ROI
+    return 1.0 + 0.05*math.sin((m.month-3)/12*2*math.pi)
 
 # choose the leak distributor (N3) and cannibalisation pair (N6)
 LEAK_DIST = dist_bld[0]                       # high sell-in, flat sell-out
@@ -207,18 +229,18 @@ for _,d in channel_partners.iterrows():
         b = base_qty(sku, d.tier)
         for m in MONTHS:
             s = seasonal(m)
-            promo = m in PROMO_MONTHS
+            promo = m in ALL_PROMO
             # primary qty
-            q = np.random.normal(b*s, b*0.12)
-            # NEEDLE N1 winner: real uplift in RJ OPC during promo
-            if promo and d.state=="Rajasthan" and sku in ("BLD-OPC53","BLD-PPC"): q *= 1.32
-            # NEEDLE N2 dud: UP OPC barely moves (paid for nothing)
-            if promo and d.state=="Uttar Pradesh" and sku in ("BLD-OPC53","BLD-PPC"): q *= 1.005
-            # NEEDLE N3 leak: this distributor loads inventory during promo
-            if promo and d.partner_id==LEAK_DIST and sku in ("BLD-OPC53","BLD-PPC"): q *= 1.9
-            # NEEDLE N6 cannibalisation: pushing S depresses W
-            if promo and ind=="BLD" and sku==CANN_PUSH: q *= 1.45
-            if promo and ind=="BLD" and sku==CANN_VICTIM: q *= 0.78
+            mult = 1.0
+            if promo:
+                mult = 1.12                                   # general promotional lift (most schemes work modestly)
+                if d.state=="Rajasthan" and sku in ("BLD-OPC53","BLD-PPC"): mult = 1.46   # N1 winner (star)
+                elif d.state=="Uttar Pradesh" and sku in ("BLD-OPC53","BLD-PPC"): mult = 1.00  # N2 dud (paid for nothing)
+                if ind=="BLD" and sku==CANN_PUSH: mult *= 1.10   # N6 push SKU
+                if ind=="BLD" and sku==CANN_VICTIM: mult *= 0.90 # N6 victim SKU (net category still positive)
+            q = np.random.normal(b*s, b*0.12) * mult
+            # NEEDLE N3 leak: this distributor over-buys OPC during promo (sell-in spike)
+            if promo and d.partner_id==LEAK_DIST and sku in ("BLD-OPC53","BLD-PPC"): q *= 1.7
             q = max(0, round(q))
             asp = float(products.set_index("sku_code").loc[sku,"asp"])
             if q>0:
@@ -251,66 +273,86 @@ primary_sales = pd.DataFrame(prim)
 secondary_sales = pd.DataFrame(sec)
 stock_position = pd.DataFrame(stock)
 
-# proper baseline: pre-promo (first 12 months) avg per sku x state
+# Rolling baseline (industry standard): for each (sku,state,month), the baseline is
+# the trailing average of NON-PROMOTIONAL months (the true "what would have sold
+# anyway" counterfactual) ending before month m — so promo uplift is measured
+# against un-promoted run-rate, not against prior inflated promo seasons.
 pre = primary_sales.merge(channel_partners[["partner_id","state"]],on="partner_id")
 pre["month"]=pd.PeriodIndex(pd.to_datetime(pre.order_date).dt.to_period("M"))
-pre_promo = pre[~pre.month.isin(list(PROMO_MONTHS))]
-# baseline = AVERAGE MONTHLY TOTAL per (sku,state) over the pre-promo period
-pre_tot = pre_promo.groupby(["sku_code","state","month"]).agg(q=("qty","sum"),v=("value","sum")).reset_index()
-bl = pre_tot.groupby(["sku_code","state"]).agg(baseline_qty=("q","mean"),baseline_value=("v","mean")).reset_index()
+mtot = pre.groupby(["sku_code","state","month"]).agg(q=("qty","sum"),v=("value","sum")).reset_index()
+month_list = list(MONTHS)
+nonpromo = set(m for m in month_list if m not in ALL_PROMO)
 rows=[]
-for _,r in bl.iterrows():
-    for m in MONTHS:
-        rows.append(dict(sku_code=r.sku_code,region=r.state,month=str(m),
-                         baseline_qty=round(r.baseline_qty,1),baseline_value=round(r.baseline_value,1)))
+for (sku,state),g in mtot.groupby(["sku_code","state"]):
+    gm = g.set_index("month")
+    npm_all = [m for m in month_list if m in nonpromo and m in gm.index]
+    for m in month_list:
+        prior_np = [mm for mm in npm_all if mm < m][-12:]      # trailing non-promo months
+        use = prior_np if prior_np else npm_all                # fallback: all non-promo
+        qv = [gm.loc[pm,"q"] for pm in use]
+        vv = [gm.loc[pm,"v"] for pm in use]
+        if qv:
+            bq, bv = float(np.mean(qv)), float(np.mean(vv))
+        else:
+            bq = float(gm.loc[m,"q"]) if m in gm.index else 0.0
+            bv = float(gm.loc[m,"v"]) if m in gm.index else 0.0
+        rows.append(dict(sku_code=sku,region=state,month=str(m),
+                         baseline_qty=round(bq,1),baseline_value=round(bv,1)))
 baseline_sales = pd.DataFrame(rows)
 
 # -----------------------------------------------------------------------------
 # 6. SCHEME APPLICATION (stacking + applied_flag/skip_reason)  &  CLAIMS
 # -----------------------------------------------------------------------------
-appl, claims = [], []
+appl = []
 sm = schemes_master.set_index("scheme_id")
 def scheme_skus(scid): return set(json.loads(sm.loc[scid,"sku_scope"]))
 def scheme_state(scid): return sm.loc[scid,"region_scope"]
 
-promo_prim = primary_sales.copy()
-promo_prim["month"]=pd.PeriodIndex(pd.to_datetime(promo_prim.order_date).dt.to_period("M"))
-promo_prim = promo_prim[promo_prim.month.isin(list(PROMO_MONTHS))]
-promo_prim = promo_prim.merge(channel_partners[["partner_id","state","tier","industry_id"]],on="partner_id")
+prim_m = primary_sales.copy()
+prim_m["month"]=pd.PeriodIndex(pd.to_datetime(prim_m.order_date).dt.to_period("M"))
+prim_m = prim_m.merge(channel_partners[["partner_id","state","tier","industry_id"]],on="partner_id")
 
-active = schemes_master[schemes_master.status=="active"]
-for _,inv in promo_prim.iterrows():
-    for _,sc in active.iterrows():
-        if inv.sku_code not in scheme_skus(sc.scheme_id): continue
-        st = scheme_state(sc.scheme_id)
-        if st!="ALL" and st!=inv.state: continue
-        slabset = json.loads(sc.slab_json)
-        pct = max([s.get("payout_pct",0) for s in slabset]+[0])/100.0
-        payout = round(inv.value*pct,2) if pct else 0.0
-        applied, skip = True, ""
-        # NEEDLE N8: free-goods scheme silently not applying for one SKU/month
-        if sc.scheme_id==SC_FG and inv.month==PROMO_MONTHS[2]:
-            applied, skip, payout = False, "scope_mismatch: SKU flagged inactive in master during sync", 0.0
-        appl.append(dict(invoice_id=inv.order_id,scheme_id=sc.scheme_id,applied_qty=inv.qty,
-            computed_payout=payout,effective_pct=round(pct*100,3),
-            applied_flag=applied,skip_reason=skip))
-
+# Apply each FY's schemes to invoices within that FY's promo season.
+overclaim_schemes = set()
+for fy in FYS:
+    ids = fy_scheme_ids[fy["key"]]
+    fy_scheme_list = [ids["win"],ids["dud"],*ids["stacking"],ids["fg"],ids["pha_oc"],ids["pha_ok"],ids["ren"]]
+    overclaim_schemes.add(ids["pha_oc"])
+    fg_id = ids["fg"]; skip_month = fy["promo"][2]
+    inv_fy = prim_m[prim_m.month.isin(list(fy["promo"]))]
+    for _,inv in inv_fy.iterrows():
+        for scid in fy_scheme_list:
+            if inv.sku_code not in scheme_skus(scid): continue
+            stt = scheme_state(scid)
+            if stt!="ALL" and stt!=inv.state: continue
+            slabset = json.loads(sm.loc[scid,"slab_json"])
+            pct = max([s.get("payout_pct",0) for s in slabset]+[0])/100.0
+            payout = round(inv.value*pct,2) if pct else 0.0
+            applied, skip = True, ""
+            # NEEDLE N8: free-goods scheme silently not applying for one SKU/month
+            if scid==fg_id and inv.month==skip_month:
+                applied, skip, payout = False, "scope_mismatch: SKU flagged inactive in master during sync", 0.0
+            appl.append(dict(invoice_id=inv.order_id,scheme_id=scid,applied_qty=inv.qty,
+                computed_payout=payout,effective_pct=round(pct*100,3),
+                applied_flag=applied,skip_reason=skip))
 scheme_application = pd.DataFrame(appl)
 
-# claims = aggregate computed payout per partner x scheme, then perturb (over/under)
+# claims = aggregate computed payout per partner x scheme, then perturb (over-claim needle)
 ap = scheme_application[scheme_application.applied_flag].merge(
         primary_sales[["order_id","partner_id"]],left_on="invoice_id",right_on="order_id")
 earned = ap.groupby(["partner_id","scheme_id"]).agg(earned=("computed_payout","sum")).reset_index()
-cid=0
+claims=[]; cid=0
+sc_end = {sid: sm.loc[sid,"end_date"] for sid in sm.index}
+_oc_seen = {}    # inflate ~every 2nd claimant on each FY's pharma over-claim scheme
 for _,r in earned.iterrows():
     cid+=1
-    claimed = r.earned
-    status="ok"
-    # NEEDLE N4 over-claim: inflate claims on the pharma over-claim scheme for some partners
-    if r.scheme_id==SC_PHA_OC and cid%3==0:
-        claimed = round(r.earned*1.6,2); status="over_claim"
+    claimed = r.earned; status="ok"
+    if r.scheme_id in overclaim_schemes:
+        _oc_seen[r.scheme_id] = _oc_seen.get(r.scheme_id, 0) + 1
+        if _oc_seen[r.scheme_id] % 2 == 1 and r.earned > 0:   # NEEDLE N4 over-claim
+            claimed = round(r.earned*1.6,2); status="over_claim"
     claims.append(dict(claim_id=f"CLM{cid:05d}",partner_id=r.partner_id,scheme_id=r.scheme_id,
-        claimed_qty=0,claimed_amount=round(claimed,2),claim_date=str(p1),status=status))
+        claimed_qty=0,claimed_amount=round(claimed,2),claim_date=str(sc_end.get(r.scheme_id,"")),status=status))
 scheme_claims = pd.DataFrame(claims)
 
 # -----------------------------------------------------------------------------
@@ -324,24 +366,26 @@ for pid_ in dist_bld+stk_pha+cp_ren:
 targets=pd.DataFrame(tgt)
 
 sync=[]; n_ok=0
+SYNC_N = 3000
+sync_start = MONTHS[0].start_time.date(); sync_end = MONTHS[-1].end_time.date()
 errors = ["invoice number already exists","material no. does not exist in the system",
           "invalid ship-to / sold-to party","net amount cannot be zero for the item",
           "stock not available for the given period","retailer master mismatch between source and DMS",
           "decimal place not allowed for the UOM"]
-for i in range(1200):
+for i in range(SYNC_N):
     fail = np.random.rand()<0.07          # ~7% failures
     et = np.random.choice(["invoice","retailer_master","material_master"],p=[.7,.2,.1])
     sync.append(dict(entity_type=et,entity_id=f"{et[:3].upper()}{i:05d}",source="ERP/Tally",
         status="fail" if fail else "ok",
         error_reason=(np.random.choice(errors) if fail else ""),
-        ts=str(fake.date_time_between(start_date=p0,end_date=p1))))
+        ts=str(fake.date_time_between(start_date=sync_start,end_date=sync_end))))
     n_ok += (0 if fail else 1)
 # NEEDLE N7: a specific retailer master mismatch tied to a real partner
 sync.append(dict(entity_type="retailer_master",entity_id=LEAK_DIST,source="ERP/Tally",status="fail",
-    error_reason="retailer master mismatch between source and DMS",ts=str(p1)))
+    error_reason="retailer master mismatch between source and DMS",ts=str(sync_end)))
 master_sync_log=pd.DataFrame(sync)
 PLANTED_NEEDLES.update(dict(N3_leak_distributor=LEAK_DIST,N6_cannibal_pair=[CANN_PUSH,CANN_VICTIM],
-    N7_sync_fail_rate=round(1-n_ok/1200,3),N8_nonapplying_scheme=SC_FG))
+    N7_sync_fail_rate=round(1-n_ok/SYNC_N,3),N8_nonapplying_scheme=SC_FG))
 
 # -----------------------------------------------------------------------------
 # WRITE
