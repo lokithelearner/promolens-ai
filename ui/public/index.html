@@ -169,6 +169,14 @@
   .bookctl input{flex:1;min-width:220px;}
   .bookctl select:focus,.bookctl input:focus{border-color:var(--navy);}
   .bk-count{font-family:var(--mono);font-size:11px;color:var(--mut);margin-left:auto;}
+  /* terms modal */
+  .modal{position:fixed;inset:0;background:rgba(20,20,25,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .modal.open{display:flex;}
+  .modal .box{background:var(--card);max-width:640px;width:92%;max-height:82vh;overflow:auto;border-radius:12px;padding:20px 24px 24px;box-shadow:0 24px 70px rgba(0,0,0,.35);border:1px solid var(--line2);}
+  .modal .mh{display:flex;align-items:baseline;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
+  .modal .mh h3{font-family:var(--serif);font-size:18px;font-weight:600;}
+  .modal .x{cursor:pointer;font-size:18px;color:var(--mut);border:none;background:none;line-height:1;}
+  .modal .x:hover{color:var(--ink);}
   .skel{background:linear-gradient(90deg,#efece4,#f6f3ec,#efece4);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:6px;}
   @keyframes sh{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
   @media(max-width:1000px){.lede,.grid{grid-template-columns:1fr;}.stats{grid-template-columns:1fr 1fr;}}
@@ -305,6 +313,14 @@
   </section>
 </div>
 
+<div class="modal" id="tmodal" onclick="if(event.target===this)closeTerms()">
+  <div class="box">
+    <div class="mh"><h3 id="tmodal-title">Scheme terms</h3><button class="x" onclick="closeTerms()">✕</button></div>
+    <div id="tmodal-body" class="sub">Loading…</div>
+    <div class="sub" style="margin-top:12px;font-size:10.5px">Grounded in the scheme circular · Vertex AI Search / local retrieval · superseded revisions flagged</div>
+  </div>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
 const R=n=>{n=+n||0;const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(1)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
@@ -431,7 +447,7 @@ function renderBook(){
       const plabel=forward?`Eligible dealers — where to grow next (${s.partner_count})`:`Applied to (${s.partner_count} dealers)`;
       const chips=(s.partners||[]).map(p=>`<span class="pchip">${esc(p.name)} <span style="color:var(--faint)">· ${esc(p.state)}</span>${p.base?' · <b>'+R(p.base)+'</b>':''}</span>`).join('');
       h+=`<div class="brow" onclick="toggleBook(this)">
-        <div class="bn">${esc(s.name)}<span class="bterms" onclick="event.stopPropagation();schemeSearch('${esc(s.name)}')">terms ↗</span></div>
+        <div class="bn">${esc(s.name)}<span class="bterms" onclick="event.stopPropagation();schemeTerms('${esc(s.name)}')">terms ↗</span></div>
         <div class="bmeta">${esc(s.archetype)} · ${esc(s.region)} · tier ${esc(s.tier)} · ${(s.skus||[]).join(', ')}</div>
         <div class="bslab">${esc(s.slabs)} · ${esc(s.incentive)}</div>
         <div class="bwin">${s.start} → ${s.end}</div>
@@ -443,6 +459,17 @@ function renderBook(){
   $('bk-count').innerText=rows.length+' of '+BOOK.length+' schemes';
 }
 function toggleBook(el){const e=el.querySelector('.bexp');if(e)e.classList.toggle('open');}
+function closeTerms(){$('tmodal').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTerms();});
+async function schemeTerms(name){
+  $('tmodal-title').innerText=name;$('tmodal-body').innerHTML='<div class="skel" style="height:64px"></div>';$('tmodal').classList.add('open');
+  try{const j=await(await fetch('/api/scheme-search?q='+encodeURIComponent(name))).json();
+    let h='<div style="font-size:13.5px;color:var(--ink);line-height:1.6">'+(j.answer||'No terms found for this scheme.')+'</div>';
+    if(j.conflict)h+='<div class="cite" style="border-color:var(--gold);background:rgba(169,121,31,.07)">⚠ '+j.conflict.note+'</div>';
+    (j.citations||[]).forEach(c=>{h+='<div class="cite"><b>'+esc(c.scheme)+' — '+esc(c.clause)+'</b><br>'+esc((c.excerpt||'').replace(/\n/g,' '))+'</div>';});
+    $('tmodal-body').innerHTML=h;
+  }catch(e){$('tmodal-body').innerHTML='Terms unavailable right now.';}
+}
 function showView(v){
   $('view-brief').style.display=(v==='book')?'none':'';
   $('view-book').style.display=(v==='book')?'':'none';
