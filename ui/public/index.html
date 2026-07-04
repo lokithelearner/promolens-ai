@@ -39,11 +39,16 @@
   .dateline b{color:var(--ink);} .dateline .dot{color:var(--line2);}
   .tag-growth{color:var(--green);}
   /* lede */
-  .lede{padding:26px 0 6px;display:grid;grid-template-columns:1.5fr 1fr;gap:36px;align-items:end;}
+  .lede{padding:26px 0 6px;display:grid;grid-template-columns:1.5fr 1fr;gap:36px;align-items:stretch;}
+  .lede .lcol{display:flex;flex-direction:column;}
   .lede h1{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.08;letter-spacing:-.6px;}
   .lede h1 .u{background:linear-gradient(transparent 62%,rgba(31,122,77,.22) 0);}
   .lede .sig{font-size:13.5px;color:var(--ink2);margin-top:14px;max-width:640px;}
   .lede .sig b{color:var(--ink);}
+  .lcol .foot{margin-top:auto;padding-top:22px;}
+  .toc{font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:700;color:var(--ink2);border-top:1px solid var(--line2);padding-top:12px;line-height:1.9;}
+  .toc b{color:var(--red);font-family:var(--mono);margin-right:3px;} .toc .s{color:var(--mut);margin:0 8px;}
+  .byline{font-size:11.5px;color:var(--faint);margin-top:11px;font-style:italic;}
   .brief-narr{font-size:13px;color:var(--ink2);line-height:1.6;border-left:2px solid var(--rule);padding:2px 0 2px 16px;}
   .brief-narr .h{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px;}
   /* stat band */
@@ -154,9 +159,13 @@
 
 <div class="wrap">
   <div class="lede">
-    <div>
+    <div class="lcol">
       <h1>Where to grow next — and <span class="u">what's leaking</span> that's capping the number.</h1>
       <p class="sig">A prescriptive read of the distributor &amp; dealer scheme book for the national sales line. PromoLens computes every rupee with an auditable engine over BigQuery; Gemini + a 4-agent ADK system turn it into the <b>next best move</b>, the <b>untapped upside</b>, and cited scheme terms. <span style="color:var(--faint)">Synthetic data.</span></p>
+      <div class="foot">
+        <div class="toc">In this briefing<span class="s">·</span><b>01</b> Where to grow next<span class="s">·</span><b>02</b> Untapped upside<span class="s">·</span><b>03</b> What's leaking<span class="s">·</span><b>04</b> Design &amp; forecast</div>
+        <div class="byline">Compiled by the PromoLens desk — Gemini 2.5 + 4-agent ADK reasoning over BigQuery · <span id="bl-date"></span></div>
+      </div>
     </div>
     <div class="brief-narr" id="narr"><div class="h">The desk's read</div><span id="narr-body">Compiling this window's briefing…</span></div>
   </div>
@@ -245,6 +254,7 @@ const $=id=>document.getElementById(id);
 const R=n=>{n=+n||0;const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(1)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
 let WIN=null, roiChart=null, leakChart=null, LEAK=0;
 $('dl-date').innerText=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+try{$('bl-date').innerText=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}catch(e){}
 
 async function loadWindows(){try{const j=await(await fetch('/api/windows')).json();
   $('win').innerHTML=j.windows.map(w=>`<option value="${w.key}" ${w.default?'selected':''}>${w.label}</option>`).join('');}catch(e){}}
