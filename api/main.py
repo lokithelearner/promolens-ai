@@ -253,6 +253,85 @@ def scheme_search(q: str):
         return {"answer": "", "citations": [], "error": str(e)}
 
 
+@app.get("/api/schemes")
+def schemes_catalog():
+    """The scheme book: every scheme's definition, grouped by lifecycle status."""
+    import json as _json
+    sm = E.T["schemes_master"]
+    def slab_summary(s):
+        try:
+            sl = _json.loads(s) if isinstance(s, str) else (s or [])
+        except Exception:
+            sl = []
+        parts = []
+        for x in sl:
+            if not isinstance(x, dict):
+                continue
+            if "growth_pct" in x and "tier" not in x:
+                parts.append(f"grow +{x['growth_pct']}% → pay {x.get('payout_pct','?')}%")
+            elif "min_qty" in x:
+                parts.append(f"buy ≥{x['min_qty']}u → {x.get('payout_pct','?')}%")
+            elif "min_value" in x:
+                parts.append(f"flat {x.get('payout_pct','?')}% in-bill")
+            elif "buy" in x:
+                parts.append(f"buy {x['buy']} get {x.get('free',1)} free")
+            elif "target_qty" in x:
+                parts.append(f"target {x['target_qty']}u → {x.get('payout_pct','?')}%")
+            elif "target_value" in x:
+                parts.append(f"target ₹{int(x['target_value']):,} → {x.get('payout_pct','?')}%")
+            elif "tier" in x:
+                parts.append(f"{x['tier']}: +{x.get('growth_pct','?')}% → {x.get('payout_pct','?')}%")
+        return "  ·  ".join(parts) or "—"
+    cp = E.T["channel_partners"]
+    name_by = cp.set_index("partner_id")["name"].to_dict()
+    st_by = cp.set_index("partner_id")["state"].to_dict()
+    # completed schemes -> partners the scheme actually applied to (from applications)
+    ps = E._promo_primary()
+    apj = E.T["scheme_application"].merge(ps[["order_id", "partner_id"]], left_on="invoice_id", right_on="order_id")
+    applied_by = {}
+    for sid_, g in apj[apj.applied_flag].groupby("scheme_id"):
+        applied_by[sid_] = list(dict.fromkeys(g["partner_id"].tolist()))
+    # forward schemes -> eligible dealers with a trailing base in the scheme's SKUs (NBA targets)
+    wmonths, _, _ = E.resolve_window(None)
+    pw = ps[ps.month.isin(wmonths)]
+    base_by_ps = pw.groupby(["partner_id", "sku_code"])["value"].sum()
+
+    def partners_for(scid, status, skus, region, tier):
+        rows = []
+        if status in ("active", "planned", "approved", "draft"):
+            for _, prow in cp.iterrows():
+                if not E._partner_type_is_channel(prow.get("type")):
+                    continue
+                if not E._region_ok(region, prow.get("state")) or not E._tier_ok(tier, prow.get("tier")):
+                    continue
+                base = sum(float(base_by_ps.get((prow["partner_id"], s), 0.0)) for s in skus)
+                if base > 0:
+                    rows.append((prow["name"], prow.get("state"), round(base)))
+            rows.sort(key=lambda x: -x[2])
+        else:  # completed -> who it applied to
+            for pid_ in applied_by.get(scid, []):
+                rows.append((name_by.get(pid_, pid_), st_by.get(pid_, ""), 0))
+        return [dict(name=n, state=s, base=b) for n, s, b in rows[:12]], len(rows)
+
+    out = []
+    for _, r in sm.iterrows():
+        try:
+            skus = _json.loads(r["sku_scope"]) if isinstance(r["sku_scope"], str) else list(r["sku_scope"])
+        except Exception:
+            skus = []
+        status = str(r.get("status", "")).lower()
+        plist, pn = partners_for(r["scheme_id"], status, skus, r.get("region_scope"), r.get("channel_tier"))
+        out.append(dict(scheme_id=r["scheme_id"], name=r["name"], industry=r.get("industry_id"),
+                        archetype=r.get("archetype"), mode=r.get("mode"), incentive=r.get("incentive_type"),
+                        region=r.get("region_scope"), tier=r.get("channel_tier"), skus=skus,
+                        slabs=slab_summary(r.get("slab_json")), start=str(r.get("start_date")),
+                        end=str(r.get("end_date")), budget=int(float(r.get("budget") or 0)),
+                        status=status, partners=plist, partner_count=pn))
+    order = {"active": 0, "planned": 1, "draft": 2, "expired": 3}
+    out.sort(key=lambda x: (order.get(x["status"], 9), x["scheme_id"]))
+    return {"schemes": out, "count": len(out)}
+
+
 @app.get("/api/whatif")
 def whatif(scheme_id: str, win: str | None = None):
     """Forecast a NEW scheme modelled on an existing one: pull the template scheme's

@@ -30,16 +30,20 @@ fake = Faker("en_IN"); Faker.seed(SEED)
 OUT = os.path.join(os.path.dirname(__file__), "csv")
 os.makedirs(OUT, exist_ok=True)
 
-# ---- time frame: 3 financial years (Apr 2023 - May 2026), India FY = Apr-Mar ----
-MONTHS = pd.period_range("2023-04", "2026-05", freq="M")          # 38 months
-TODAY = date(2026, 6, 9)
+# ---- time frame: realized data Apr 2023 - Jun 2026, India FY = Apr-Mar ----
+# "Today" sits in Q1 of the running FY2026-27; its H2 promo season (Oct-Mar) is upcoming.
+MONTHS = pd.period_range("2023-04", "2026-06", freq="M")          # 39 months of realized sales
+TODAY = date(2026, 7, 4)
 
 # Each financial year runs a 6-month promotion season (H2: Oct-Mar).
+# Only these three FYs have a COMPLETED promo season with realized data (ROI/leakage).
 FYS = [
     dict(key="FY2023-24", promo=pd.period_range("2023-10", "2024-03", freq="M")),
     dict(key="FY2024-25", promo=pd.period_range("2024-10", "2025-03", freq="M")),
     dict(key="FY2025-26", promo=pd.period_range("2025-10", "2026-03", freq="M")),
 ]
+# The running year's promo season is in the future — no realized sales yet.
+FY_NEXT_PROMO = pd.period_range("2026-10", "2027-03", freq="M")
 # Union of every promo month across FYs (needle uplifts apply in any promo season).
 ALL_PROMO = pd.PeriodIndex(sorted(set(m for fy in FYS for m in fy["promo"])))
 PROMO_MONTHS = FYS[-1]["promo"]    # latest season (kept for backward-compat references)
@@ -189,7 +193,30 @@ for fy in FYS:
         "credit_note", p0, p1, 5000000, status=st)
     fy_scheme_ids[k] = dict(win=win, dud=dud, stacking=[st1,st2,st3,st4], fg=fg, pha_oc=pha_oc, pha_ok=pha_ok, ren=ren)
 
-# a DRAFT scheme in the current (in-progress) FY2026-27 — lifecycle realism
+# ---- FY2026-27 (the running year): live now + approved-for-next-season + pipeline ----
+# These are what a National Sales Head can ACT on today; NBA recommends from these,
+# never from the expired past-year schemes.
+# (a) ACTIVE now — an off-season Q1/Q2 volume push on putty (Apr-Sep 2026, live in July).
+add_scheme("BLD","Monsoon Volume Push - Putty FY27","volume","instant",None,"step",
+    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"min_qty":40,"payout_pct":1.5}],"discount",
+    date(2026,4,1),date(2026,9,30),1400000,status="active")
+# (b) PLANNED / approved for the upcoming H2 season (Oct 2026 - Mar 2027) — proven archetypes re-run.
+p0n, p1n = date(2026,10,1), date(2027,3,31)
+add_scheme("BLD","Growth Booster - OPC RJ FY27","growth","QPS","value","running",
+    ["BLD-OPC53","BLD-PPC"],"Rajasthan","A/B/C",
+    [{"growth_pct":5,"payout_pct":1.0},{"growth_pct":10,"payout_pct":1.75},{"growth_pct":18,"payout_pct":2.5}],
+    "cash",p0n,p1n,4600000,status="planned")
+add_scheme("BLD","Width Scheme - Putty FY27","volume","instant",None,"step",
+    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"min_qty":50,"payout_pct":1.5}],"discount",
+    p0n,p1n,1300000,status="planned")
+add_scheme("BLD","Core Growth - Putty FY27","growth","QPS","qty","running",
+    ["BLD-PUTTY-W","BLD-PUTTY-S"],"ALL","A/B/C",[{"growth_pct":6,"payout_pct":4.5}],"cash",
+    p0n,p1n,2700000,status="planned")
+add_scheme("REN","Elite Club FY27","club","QPS","value","fixed",
+    ["REN-PNL540","REN-PNL450","REN-INV5K","REN-INV10K"],"ALL","Gold/Silver",
+    [{"tier":"Silver","growth_pct":10,"payout_pct":1.0},{"tier":"Gold","growth_pct":20,"payout_pct":2.0}],
+    "credit_note",p0n,p1n,5200000,status="planned")
+# (c) DRAFT / pipeline — not yet approved (excluded from recommendations).
 add_scheme("BLD","Q2 Draft Proposal - PPC","growth","QPS","value","running",["BLD-PPC"],"Gujarat","A/B/C",
     [{"growth_pct":6,"payout_pct":1.25}],"cash",date(2026,7,1),date(2026,9,30),2500000,status="draft")
 schemes_master = pd.DataFrame(schemes)
@@ -206,8 +233,14 @@ PLANTED_NEEDLES.update(dict(N1_winner=_latest["win"], N2_dud=_latest["dud"],
 # -----------------------------------------------------------------------------
 prim, sec, stock, base = [], [], [], []
 oid = 0; tid = 0
-def seasonal(m):  # mild seasonality so promo uplift (not season) drives ROI
-    return 1.0 + 0.05*math.sin((m.month-3)/12*2*math.pi)
+def seasonal(m):
+    # building-materials demand: monsoon trough (Jul-Aug), winter construction crest (Dec-Jan)
+    return 1.0 + 0.06*math.cos((m.month-1)/12*2*math.pi)
+_M0 = MONTHS[0]
+def yoy_growth(m):
+    # ~9%/yr compounding top-line growth so FY24 < FY25 < FY26 < FY27 (a real, growing business)
+    yrs = (m.year - _M0.year) + (m.month - _M0.month) / 12.0
+    return 1.09 ** yrs
 
 # choose the leak distributor (N3) and cannibalisation pair (N6)
 LEAK_DIST = dist_bld[0]                       # high sell-in, flat sell-out
@@ -234,11 +267,11 @@ for _,d in channel_partners.iterrows():
             mult = 1.0
             if promo:
                 mult = 1.12                                   # general promotional lift (most schemes work modestly)
-                if d.state=="Rajasthan" and sku in ("BLD-OPC53","BLD-PPC"): mult = 1.46   # N1 winner (star)
-                elif d.state=="Uttar Pradesh" and sku in ("BLD-OPC53","BLD-PPC"): mult = 1.00  # N2 dud (paid for nothing)
+                if d.state=="Rajasthan" and sku in ("BLD-OPC53","BLD-PPC"): mult = 1.34   # N1 winner (star)
+                elif d.state=="Uttar Pradesh" and sku in ("BLD-OPC53","BLD-PPC"): mult = 0.84  # N2 dud: paid out yet sales FELL vs run-rate
                 if ind=="BLD" and sku==CANN_PUSH: mult *= 1.10   # N6 push SKU
                 if ind=="BLD" and sku==CANN_VICTIM: mult *= 0.90 # N6 victim SKU (net category still positive)
-            q = np.random.normal(b*s, b*0.12) * mult
+            q = np.random.normal(b*s, b*0.16) * mult * yoy_growth(m)
             # NEEDLE N3 leak: this distributor over-buys OPC during promo (sell-in spike)
             if promo and d.partner_id==LEAK_DIST and sku in ("BLD-OPC53","BLD-PPC"): q *= 1.7
             q = max(0, round(q))

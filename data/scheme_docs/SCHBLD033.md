@@ -1,9 +1,9 @@
-# Scheme Circular: Monsoon Volume Push - Putty FY27
+# Scheme Circular: Width Scheme - Putty FY27
 
-**Scheme ID:** SCHBLD031
+**Scheme ID:** SCHBLD033
 **Issued by:** DuraBuild Trade Marketing
-**Status:** active
-**Effective period:** 2026-04-01 to 2026-09-30
+**Status:** planned
+**Effective period:** 2026-10-01 to 2027-03-31
 
 ## 1. Eligibility
 This scheme is open to channel partners of tier A/B/C operating in ALL. Partners must have an active trading account and no unresolved claim disputes.
@@ -12,7 +12,7 @@ This scheme is open to channel partners of tier A/B/C operating in ALL. Partners
 Applicable SKUs: BLD-PUTTY-W, BLD-PUTTY-S.
 
 ## 3. Incentive structure (instant mode, step slab, discount)
-- Purchase >= 40 units  ->  1.5 free/payout
+- Purchase >= 50 units  ->  1.5 free/payout
 
 ## 4. Baseline & measurement
 Uplift is measured against the trailing_12m baseline for the eligible SKUs and region. Only secondary-verified sell-out counts towards slab achievement.
@@ -21,4 +21,4 @@ Uplift is measured against the trailing_12m baseline for the eligible SKUs and r
 Claims must be raised within 30 days of period close with supporting sell-out evidence. Payout is by discount. Over-claims beyond earned entitlement will be recovered from the next settlement.
 
 ## 6. Budget & caps
-Total scheme budget: Rs 1,400,000. The company may cap total per-invoice discount where multiple schemes apply.
+Total scheme budget: Rs 1,300,000. The company may cap total per-invoice discount where multiple schemes apply.

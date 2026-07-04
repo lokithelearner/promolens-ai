@@ -89,7 +89,7 @@ def list_windows():
     fys = set()
     sm = T["schemes_master"]
     for _, r in sm.iterrows():
-        if str(r.get("status", "")) == "draft":   # skip not-yet-started FYs
+        if str(r.get("status", "")).lower() != "expired":   # only completed seasons have realized ROI data
             continue
         try:
             d = pd.to_datetime(r["start_date"])
@@ -369,14 +369,17 @@ def _region_ok(region_scope, state):
     rs = str(region_scope or "")
     return rs.upper() in ("ALL", "", "NAN") or rs.strip().lower() == str(state or "").strip().lower()
 
+_RUNNABLE = {"active", "planned", "approved"}   # can be run now or for the upcoming season
+
 def _eligible_schemes(partner_row, wmonths):
-    """Schemes a partner is eligible for and that are active in the window."""
+    """Schemes a partner can be enrolled in going forward — those that are LIVE now
+    or APPROVED/PLANNED for the upcoming season. Never expired past-year schemes and
+    never unapproved drafts (NBA is a forward-looking recommendation, so the partner's
+    trailing base — not the scheme's own months — anchors the projection)."""
     sm = T["schemes_master"]
     out = []
     for _, sc in sm.iterrows():
-        if str(sc.get("status", "")) == "draft":
-            continue
-        if not (_scheme_months(sc["scheme_id"]) & wmonths):
+        if str(sc.get("status", "")).lower() not in _RUNNABLE:
             continue
         if not _region_ok(sc.get("region_scope"), partner_row.get("state")):
             continue
@@ -435,6 +438,7 @@ def next_best_scheme(partner_id, win=None, leaky=None, ocids=None):
         proj_payout = base * (1 + ask / 100.0 * prop) * (pay / 100.0)
         roi = (exp_incr - proj_payout) / proj_payout if proj_payout else float("nan")
         recs.append(dict(scheme_id=sc["scheme_id"], scheme=sc["name"], archetype=sc["archetype"],
+                         status=str(sc.get("status", "")).lower(),
                          base_value=round(base), ask_growth_pct=ask, payout_pct=pay,
                          expected_incremental=round(exp_incr), projected_payout=round(proj_payout),
                          expected_roi=round(roi, 2)))
@@ -469,8 +473,9 @@ def nba_recommendations(industry="BLD", win=None, limit=12):
         elif nb["constraint"] == "over_claim":
             action = (f"Clear the open over-claim with {nb['name']} before enrolling them in '{top['scheme']}'.")
         else:
-            action = (f"Push '{top['scheme']}' to {nb['name']} ({nb['state']}, tier {nb['tier']}): "
-                      f"~Rs {top['expected_incremental']:,} extra sales at ~{top['expected_roi']}x ROI.")
+            when = "live now" if top.get("status") == "active" else "opens Oct"
+            action = (f"Line up '{top['scheme']}' for {nb['name']} ({nb['state']}, tier {nb['tier']}) — {when}: "
+                      f"~Rs {top['expected_incremental']:,} incremental at ~{top['expected_roi']}x ROI.")
         out.append(dict(partner_id=nb["partner_id"], name=nb["name"], state=nb["state"], tier=nb["tier"],
                         scheme_id=top["scheme_id"], scheme=top["scheme"],
                         base_value=top["base_value"], ask_growth_pct=top["ask_growth_pct"],
